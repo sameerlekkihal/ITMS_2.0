@@ -1,5 +1,6 @@
 import { useAppStore } from '../../store/AppStore';
 import { AV_COLORS, ROLE_STYLE, ADDED_BY } from '../../data/mockData';
+import { maskEmail, maskMobile } from '../../utils/mask';
 
 const thStyle: React.CSSProperties = { textAlign: 'left', padding: '11px 14px', fontSize: 11, fontWeight: 600, color: '#9ca3af', letterSpacing: .5, textTransform: 'uppercase' };
 const tdStyle: React.CSSProperties = { padding: '13px 14px', fontSize: 13, borderBottom: '1px solid #f3f4f6' };
@@ -64,12 +65,12 @@ export function UserList() {
                   <td style={tdStyle}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0, background: AV_COLORS[(u.id - 1) % AV_COLORS.length] }}>{u.name.charAt(0)}</div>
-                      <div><div style={{ fontWeight: 600, fontSize: 13 }}>{u.name}</div><div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>{u.email}</div></div>
+                      <div><div style={{ fontWeight: 600, fontSize: 13 }}>{u.name}</div><div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>{maskEmail(u.email)}</div></div>
                     </div>
                   </td>
                   <td style={{ ...tdStyle, color: '#9ca3af', fontSize: 12 }}>{u.email.split('@')[0]}</td>
                   <td style={tdStyle}><span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: rc.bg, color: rc.color }}>{u.role}</span></td>
-                  <td style={{ ...tdStyle, color: '#9ca3af', fontSize: 12 }}>{u.mobile}</td>
+                  <td style={{ ...tdStyle, color: '#9ca3af', fontSize: 12 }}>{maskMobile(u.mobile)}</td>
                   <td style={{ ...tdStyle, color: '#9ca3af', fontSize: 12 }}>{u.added}</td>
                   <td style={tdStyle}>
                     <div style={{ fontSize: 12, fontWeight: 500, color: '#0f1115' }}>{addedBy[1] || addedBy[0]}</div>

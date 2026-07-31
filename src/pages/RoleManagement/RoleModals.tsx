@@ -1,6 +1,7 @@
 import { useAppStore } from '../../store/AppStore';
 import { ModalOverlay, SidePanel, LogList } from '../../components/ModalShell';
 import { RM_PERM_MODULES, ROLE_STYLE, AV_COLORS, LOG_ICONS, LOG_DOT_BG } from '../../data/mockData';
+import { maskEmail } from '../../utils/mask';
 
 const btnGhost: React.CSSProperties = { padding: '10px 18px', background: '#fff', color: '#0f1115', border: '1.5px solid #e5e7eb', borderRadius: 9, fontSize: 13, fontWeight: 500, cursor: 'pointer' };
 const btnPrimary: React.CSSProperties = { padding: '10px 18px', background: '#e8192c', color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
@@ -19,7 +20,7 @@ export function RoleModals() {
   const inactiveUsers = pool.filter(u => !u.active);
   const usersList = (state.rmUserTab === 'active' ? activeUsers : inactiveUsers).map(u => {
     const rc = ROLE_STYLE[u.role] || ROLE_STYLE.Agent;
-    return { name: u.name, email: u.email, initial: u.name.charAt(0), avColor: AV_COLORS[(u.id - 1) % AV_COLORS.length], role: u.role, roleBg: rc.bg, roleColor: rc.color };
+    return { key: u.id, name: u.name, email: maskEmail(u.email), initial: u.name.charAt(0), avColor: AV_COLORS[(u.id - 1) % AV_COLORS.length], role: u.role, roleBg: rc.bg, roleColor: rc.color };
   });
 
   const logItems = logRole ? [
@@ -84,7 +85,7 @@ export function RoleModals() {
             <div style={{ padding: '16px 22px', maxHeight: 380, overflowY: 'auto' }}>
               {usersList.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: '#9ca3af', fontSize: 13 }}>No users found for this role.</div>}
               {usersList.map(u => (
-                <div key={u.email} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid #f3f4f6' }}>
+                <div key={u.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid #f3f4f6' }}>
                   <div style={{ width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff', background: u.avColor }}>{u.initial}</div>
                   <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600 }}>{u.name}</div><div style={{ fontSize: 11, color: '#9ca3af' }}>{u.email}</div></div>
                   <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 20, background: u.roleBg, color: u.roleColor, fontWeight: 600 }}>{u.role}</span>

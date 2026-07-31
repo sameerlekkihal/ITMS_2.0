@@ -4,10 +4,10 @@ const pageLabels: Record<string, string> = { home: 'Dashboard', users: 'User Man
 
 export function Header() {
   const { state, onNavTo, onToggleProfile, onProfileItem, onSettingsClick, onLogout } = useAppStore();
-  const { page, profileOpen } = state;
+  const { page, profileOpen, sidebarCollapsed } = state;
 
   return (
-    <header style={{ position: 'fixed', top: 0, left: 232, right: 0, height: 56, zIndex: 90, background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', padding: '0 28px', justifyContent: 'space-between' }}>
+    <header style={{ position: 'fixed', top: 0, left: sidebarCollapsed ? 68 : 232, right: 0, height: 56, zIndex: 90, background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', padding: '0 28px', justifyContent: 'space-between', transition: 'left .2s ease' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
         <span onClick={() => onNavTo('home')} style={{ color: '#9ca3af', cursor: 'pointer' }}>Home</span>
         {page !== 'home' && <><span style={{ color: '#9ca3af' }}>/</span><span style={{ fontWeight: 600 }}>{pageLabels[page] || page}</span></>}

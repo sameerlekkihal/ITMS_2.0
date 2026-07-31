@@ -17,7 +17,7 @@ export function UserList() {
   const start = (state.umPage - 1) * state.umPerPage;
   const slice = filtered.slice(start, start + state.umPerPage);
 
-  const tabs = ['ITMS', 'POS', 'LMS'];
+  const typeRadios = ['', 'ITMS', 'POS', 'LMS'];
 
   return (
     <>
@@ -33,18 +33,16 @@ export function UserList() {
             <input type="text" value={state.umSearch} onChange={e => update({ umSearch: e.target.value, umPage: 1 })} placeholder="Search by name, email, mobile…" style={{ border: 'none', outline: 'none', fontSize: 13, width: '100%', color: '#0f1115', background: 'transparent' }} />
           </div>
           <select value={state.umStatus} onChange={e => update({ umStatus: e.target.value, umPage: 1 })} style={{ border: '1.5px solid #e5e7eb', borderRadius: 9, padding: '8px 12px', fontSize: 13, color: '#0f1115', outline: 'none', cursor: 'pointer', background: '#fff' }}>
-            <option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option>
-          </select>
-          <select value={state.umType} onChange={e => update({ umType: e.target.value, umPage: 1 })} style={{ border: '1.5px solid #e5e7eb', borderRadius: 9, padding: '8px 12px', fontSize: 13, color: '#0f1115', outline: 'none', cursor: 'pointer', background: '#fff' }}>
-            <option value="">All Types</option><option>ITMS</option><option>POS</option><option>LMS</option>
+            <option value="">All users</option><option value="active">Active users</option><option value="inactive">Inactive users</option>
           </select>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 3, background: '#f3f4f6', borderRadius: 9, padding: 3 }}>
-            {tabs.map(t => (
-              <div key={t} onClick={() => update({ umTab: t, umType: t, umPage: 1 })} style={{ padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer', color: state.umTab === t ? '#e8192c' : '#9ca3af', background: state.umTab === t ? '#fff' : 'transparent', boxShadow: state.umTab === t ? '0 1px 4px rgba(0,0,0,.09)' : 'none' }}>{t}</div>
+            {typeRadios.map(t => (
+              <div key={t || 'all'} onClick={() => update({ umType: t, umPage: 1 })} style={{ padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer', color: state.umType === t ? '#e8192c' : '#9ca3af', background: state.umType === t ? '#fff' : 'transparent', boxShadow: state.umType === t ? '0 1px 4px rgba(0,0,0,.09)' : 'none' }}>{t || 'All'}</div>
             ))}
           </div>
+          <span style={{ fontSize: 12, color: '#9ca3af', paddingLeft: 4, borderLeft: '1px solid #e5e7eb', marginLeft: 4 }}>{total} user{total !== 1 ? 's' : ''}</span>
           <button onClick={() => showToast('CSV export started')} style={{ padding: '10px 18px', background: '#fff', color: '#0f1115', border: '1.5px solid #e5e7eb', borderRadius: 9, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>⬇ Export</button>
         </div>
       </div>

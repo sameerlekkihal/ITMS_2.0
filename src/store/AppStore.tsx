@@ -28,6 +28,8 @@ export interface AppState {
   page: PageKey;
   toast: ToastState | null;
   profileOpen: boolean;
+  sidebarCollapsed: boolean;
+  umrExpanded: boolean;
   lastLoginTime: string;
   sessionVia: string;
   todayDate: string;
@@ -36,7 +38,6 @@ export interface AppState {
   umSearch: string;
   umStatus: string;
   umType: string;
-  umTab: string;
   umPage: number;
   umPerPage: number;
   umSubView: UmSubView;
@@ -92,10 +93,12 @@ const initialState: AppState = {
   page: 'home',
   toast: null,
   profileOpen: false,
+  sidebarCollapsed: false,
+  umrExpanded: true,
   lastLoginTime: '—', sessionVia: '—', todayDate: '—',
 
   umUsers: INIT_USERS,
-  umSearch: '', umStatus: '', umType: '', umTab: 'ITMS',
+  umSearch: '', umStatus: '', umType: '',
   umPage: 1, umPerPage: 7,
   umSubView: 'list', umEditId: null,
   umForm: { type: 'ITMS', name: '', email: '', role: '', mobile: '' },
@@ -158,6 +161,8 @@ function useAppStoreValue() {
   }, [update, showToast]);
 
   const onToggleProfile = useCallback(() => update(s => ({ profileOpen: !s.profileOpen })), [update]);
+  const onToggleSidebar = useCallback(() => update(s => ({ sidebarCollapsed: !s.sidebarCollapsed })), [update]);
+  const onToggleUmr = useCallback(() => update(s => ({ umrExpanded: !s.umrExpanded })), [update]);
   const onProfileItem = useCallback((msg: string) => { update({ profileOpen: false }); showToast(msg); }, [update, showToast]);
   const onSettingsClick = useCallback(() => showToast('Settings coming soon'), [showToast]);
 
@@ -424,13 +429,11 @@ function useAppStoreValue() {
   const onIpConfirmUpload = useCallback(() => { update({ ipUploadOpen: false }); showToast('Login credentials uploaded successfully!'); }, [update, showToast]);
   const setIpTab = useCallback((tab: IpTab) => update({ ipTab: tab }), [update]);
 
-  const navItemStyle = useCallback((page: PageKey): { active: boolean } => ({ active: state.page === page }), [state.page]);
-
   return {
     state,
     update,
     showToast,
-    onLoginClick, onNavTo, onLogout, onToggleProfile, onProfileItem, onSettingsClick,
+    onLoginClick, onNavTo, onLogout, onToggleProfile, onToggleSidebar, onToggleUmr, onProfileItem, onSettingsClick,
     umFilteredUsers, onUmAddUser, onUmOpenEdit, onUmBackToList, onUmFormField, onUmSaveUser,
     onUmToggleStatus, onUmOpenDelete, onUmCancelDelete, onUmConfirmDelete, onUmOpenPerms, onUmClosePerms,
     onUmTogglePerm, onUmSavePerms, onUmOpenAlloc, onUmCloseAlloc, onUmSaveAlloc, onUmOpenLog, onUmCloseLog,
@@ -443,7 +446,6 @@ function useAppStoreValue() {
     ipFilteredUsers, onIpFilterField, onIpFilterUsers, onIpResetFilters, onIpApproverChange, onIpApproverAdd,
     onIpApproverRemove, onIpSaveApprovers, onIpOpenDetail, onIpCloseDetail, onIpApprove, onIpOpenRej,
     onIpCloseRej, onIpConfirmReject, onIpOpenUpload, onIpCloseUpload, onIpConfirmUpload, setIpTab,
-    navItemStyle,
   };
 }
 

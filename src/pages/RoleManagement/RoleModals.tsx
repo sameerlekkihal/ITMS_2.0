@@ -51,7 +51,7 @@ export function RoleModals() {
                         <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', borderBottom: '1px solid #f3f4f6', fontSize: 13 }}>
                           <span style={{ fontWeight: 500 }}>{name}</span>
                           <div onClick={() => onRmTogglePermItem(key)} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                            <input type="checkbox" checked={on} onChange={() => onRmTogglePermItem(key)} style={{ accentColor: '#e8192c', width: 15, height: 15 }} />
+                            <input type="checkbox" checked={on} onChange={() => onRmTogglePermItem(key)} onClick={e => e.stopPropagation()} style={{ accentColor: '#e8192c', width: 15, height: 15 }} />
                             <span style={{ fontSize: 11, color: '#9ca3af' }}>Enabled</span>
                           </div>
                         </div>

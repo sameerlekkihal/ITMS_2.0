@@ -1,6 +1,10 @@
 import { useAppStore } from '../store/AppStore';
 
-const pageLabels: Record<string, string> = { home: 'Dashboard', users: 'User Management', roles: 'Role Management', workflow: 'Workflow', insurer: 'Insurer Portal' };
+const pageLabels: Record<string, string> = {
+  home: 'Dashboard', users: 'User Management', roles: 'Role Management', createuser: 'Create ITMS User', workflow: 'Workflow', insurer: 'Insurer Portal',
+  servicerequests: 'Health Policy List', createhealthrequest: 'Create Health Request',
+  allocationbuckets: 'Allocation Buckets', allocationrules: 'Allocation Rules', qcdashboard: 'QC Dashboard',
+};
 
 export function Header() {
   const { state, onNavTo, onToggleProfile, onProfileItem, onSettingsClick, onLogout } = useAppStore();

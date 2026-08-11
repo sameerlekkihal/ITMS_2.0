@@ -19,8 +19,8 @@ const umrSubItemStyle = (active: boolean): React.CSSProperties => ({
 const sectionLabelStyle: React.CSSProperties = { fontSize: 9.5, fontWeight: 600, letterSpacing: 1.2, textTransform: 'uppercase', color: 'rgba(255,255,255,.5)', padding: '14px 10px 5px' };
 
 export function Sidebar() {
-  const { state, onNavTo, onLogout, onToggleSidebar, onToggleUmr } = useAppStore();
-  const { page, sidebarCollapsed, umrExpanded } = state;
+  const { state, onNavTo, onLogout, onToggleSidebar, onToggleUmr, onToggleHr } = useAppStore();
+  const { page, sidebarCollapsed, umrExpanded, hrExpanded } = state;
   const expanded = !sidebarCollapsed;
 
   const asideWidth = sidebarCollapsed ? 68 : 232;
@@ -71,17 +71,56 @@ export function Sidebar() {
                 <div onClick={() => onNavTo('roles')} style={umrSubItemStyle(page === 'roles')}>
                   <span style={{ width: 14, flexShrink: 0 }} /><span style={{ width: 18, textAlign: 'center', fontSize: 14, flexShrink: 0 }}>🔐</span> Role Management
                 </div>
+                {state.cuPermission && (
+                  <div onClick={() => onNavTo('createuser')} style={umrSubItemStyle(page === 'createuser')}>
+                    <span style={{ width: 14, flexShrink: 0 }} /><span style={{ width: 18, textAlign: 'center', fontSize: 14, flexShrink: 0 }}>🧑‍💼</span> Create ITMS User
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
         {sidebarCollapsed && (
-          <div onClick={() => onNavTo('users')} style={navItemStyle(page === 'users' || page === 'roles', true)} title="User &amp; Roles">
+          <div onClick={() => onNavTo('users')} style={navItemStyle(page === 'users' || page === 'roles' || page === 'createuser', true)} title="User &amp; Roles">
             <span style={{ width: 18, textAlign: 'center', fontSize: 15, flexShrink: 0 }}>🗂️</span>
           </div>
         )}
 
         {expanded && <div style={sectionLabelStyle}>Operations</div>}
+
+        {expanded && (
+          <div style={{ border: '1px solid rgba(255,255,255,.16)', borderRadius: 9, overflow: 'hidden', marginBottom: 1 }}>
+            <div onClick={onToggleHr} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', color: 'rgba(255,255,255,.85)', fontSize: 13, fontWeight: 600, cursor: 'pointer', userSelect: 'none', background: hrExpanded ? 'rgba(255,255,255,.04)' : 'transparent' }}>
+              <span style={{ width: 18, textAlign: 'center', fontSize: 15, flexShrink: 0 }}>🩺</span> Health Requests
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(255,255,255,.55)' }}>{hrExpanded ? '▾' : '▸'}</span>
+            </div>
+            {hrExpanded && (
+              <div style={{ borderTop: '1px solid rgba(255,255,255,.16)', padding: '4px 6px 6px' }}>
+                <div onClick={() => onNavTo('servicerequests')} style={umrSubItemStyle(page === 'servicerequests')}>
+                  <span style={{ width: 14, flexShrink: 0 }} /><span style={{ width: 18, textAlign: 'center', fontSize: 14, flexShrink: 0 }}>📋</span> Health Policy List
+                </div>
+                <div onClick={() => onNavTo('createhealthrequest')} style={umrSubItemStyle(page === 'createhealthrequest')}>
+                  <span style={{ width: 14, flexShrink: 0 }} /><span style={{ width: 18, textAlign: 'center', fontSize: 14, flexShrink: 0 }}>➕</span> Create Health Request
+                </div>
+                <div onClick={() => onNavTo('allocationbuckets')} style={umrSubItemStyle(page === 'allocationbuckets')}>
+                  <span style={{ width: 14, flexShrink: 0 }} /><span style={{ width: 18, textAlign: 'center', fontSize: 14, flexShrink: 0 }}>🗄️</span> Allocation Buckets
+                </div>
+                <div onClick={() => onNavTo('allocationrules')} style={umrSubItemStyle(page === 'allocationrules')}>
+                  <span style={{ width: 14, flexShrink: 0 }} /><span style={{ width: 18, textAlign: 'center', fontSize: 14, flexShrink: 0 }}>🧩</span> Allocation Rules
+                </div>
+                <div onClick={() => onNavTo('qcdashboard')} style={umrSubItemStyle(page === 'qcdashboard')}>
+                  <span style={{ width: 14, flexShrink: 0 }} /><span style={{ width: 18, textAlign: 'center', fontSize: 14, flexShrink: 0 }}>📊</span> QC Dashboard
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {sidebarCollapsed && (
+          <div onClick={() => onNavTo('servicerequests')} style={navItemStyle(['servicerequests', 'createhealthrequest', 'allocationbuckets', 'allocationrules', 'qcdashboard'].includes(page), true)} title="Health Requests">
+            <span style={{ width: 18, textAlign: 'center', fontSize: 15, flexShrink: 0 }}>🩺</span>
+          </div>
+        )}
+
         <NavItem p="workflow" icon="🔄" label="Workflow" />
         <NavItem p="insurer" icon="🏢" label="Insurer Portal" />
       </nav>

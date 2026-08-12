@@ -209,18 +209,42 @@ export interface SrFilters {
   proposalNumber: string;
   customerName: string;
   mobile: string;
+  paymentMode: string;
   email: string;
   caseType: string;
   insurer: string;
   medium: string;
+  bookingDate: string;
+  requestedFrom: string;
+  requestedTo: string;
   status: string;
   policyType: string;
   businessType: string;
   source: string;
-  paymentMode: string;
+
+  dealerName: string;
+  channelType: string;
+  subSource: string;
+  assignee: string;
+  groupType: string;
+  retailType: string;
+  medicalType: string;
+  bookedBy: string;
+
+  cancellationFrom: string;
+  cancellationTo: string;
+  dealerMVT: string;
+  isBulkUploaded: string;
+  policyEndFrom: string;
+  policyEndTo: string;
+  paymentFrom: string;
+  paymentTo: string;
   paymentMethod: string;
+
   myTickets: boolean;
 }
+
+export type SrQuickTab = 'All' | 'Unbooked (STP)' | 'Upcoming Renewals' | 'Pre QC';
 
 // ---- Create Health Request (offline health lead form) ----
 

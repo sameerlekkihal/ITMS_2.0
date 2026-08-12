@@ -1,19 +1,69 @@
 import { useAppStore } from '../../store/AppStore';
+import type { SrQuickTab } from '../../types';
 import {
-  SR_AGENTS, SR_INSURERS, SR_CASE_TYPES, SR_POLICY_TYPES, SR_BUSINESS_TYPES, SR_SOURCES, SR_PAYMENT_MODES,
+  SR_AGENTS, SR_INSURERS, SR_CASE_TAGS, SR_POLICY_TYPES, SR_BUSINESS_TYPES, SR_CHANNEL_TYPES, SR_SOURCES,
+  SR_PAYMENT_MODES, SR_PAYMENT_METHODS, SR_GROUP_TYPES, SR_RETAIL_TYPES, SR_BOOKED_BY, SR_YES_NO, SR_DEALERS,
   SR_AGEING_COLOR, SR_STATUS_COLOR,
 } from '../../data/mockData';
 
-const QUICK_STATUS_CHIPS = ['Medical Pending', 'Booked Verification Call Pending', 'Booked Verification Call Done', 'Proposal Payment Link Generated'];
+const SR_QUICK_TABS: SrQuickTab[] = ['All', 'Unbooked (STP)', 'Upcoming Renewals', 'Pre QC'];
+
+function TextField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <div>
+      <label className="sr-field-row-label">{label}</label>
+      <input className="sr-input" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
+    </div>
+  );
+}
+
+function SelectField({ label, value, onChange, options, placeholder }: { label: string; value: string; onChange: (v: string) => void; options: string[]; placeholder: string }) {
+  return (
+    <div>
+      <label className="sr-field-row-label">{label}</label>
+      <div className="sr-sel-wrap">
+        <select className="sr-sel" value={value} onChange={e => onChange(e.target.value)}>
+          <option value="">{placeholder}</option>
+          {options.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <span className="sr-sel-chevron">▾</span>
+      </div>
+    </div>
+  );
+}
+
+function DateField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <label className="sr-field-row-label">{label}</label>
+      <input type="date" className="sr-input" value={value} onChange={e => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+function DateRangeField({ label, from, to, onFrom, onTo }: { label: string; from: string; to: string; onFrom: (v: string) => void; onTo: (v: string) => void }) {
+  return (
+    <div>
+      <label className="sr-field-row-label">{label}</label>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <input type="date" className="sr-input" value={from} onChange={e => onFrom(e.target.value)} />
+        <span style={{ color: 'var(--neu-04)', fontSize: 12 }}>–</span>
+        <input type="date" className="sr-input" value={to} onChange={e => onTo(e.target.value)} />
+      </div>
+    </div>
+  );
+}
 
 export function RequestList() {
   const {
-    state, srFilteredRequests, onSrFilterField, onSrToggleMoreFilters, onSrSearch, onSrResetFilters,
-    onSrQuickChip, onSrOpenDetails, onSrAssignedToChange,
+    state, srFilteredRequests, onSrFilterField, onSrToggleMoreFilters, onSrSetActiveTab, onSrSearch, onSrCount,
+    onSrDownload, onSrResetFilters, onSrOpenDetails, onSrAssignedToChange,
   } = useAppStore();
 
   const f = state.srFilters;
   const rows = srFilteredRequests();
+
+  const sf = (field: keyof typeof f) => (value: string) => onSrFilterField(field, value);
 
   return (
     <div className="sr-root">
@@ -23,151 +73,99 @@ export function RequestList() {
         <span className="current">Health Policy List</span>
       </div>
 
-      <div className="sr-chip-row" style={{ marginBottom: 14 }}>
-        <span style={{ fontSize: 12, color: 'var(--neu-03)', marginRight: 2 }}>Quick filters:</span>
-        {QUICK_STATUS_CHIPS.map(label => (
-          <button
-            key={label}
-            className={`sr-chip${f.status === label ? ' active' : ''}`}
-            onClick={() => onSrQuickChip('status', label)}
-          >
-            {label}
-          </button>
-        ))}
-        <button
-          className={`sr-chip${f.myTickets ? ' active' : ''}`}
-          onClick={() => onSrFilterField('myTickets', !f.myTickets)}
-        >
-          👤 My Tickets
-        </button>
-      </div>
-
       <div className="sr-filter-card">
-        <div className="sr-filter-grid" style={{ marginBottom: 10 }}>
-          <div>
-            <label className="sr-field-row-label">Request ID</label>
-            <input className="sr-input" value={f.reqId} onChange={e => onSrFilterField('reqId', e.target.value)} placeholder="Enter Request ID" />
-          </div>
-          <div>
-            <label className="sr-field-row-label">Customer Name</label>
-            <input className="sr-input" value={f.customerName} onChange={e => onSrFilterField('customerName', e.target.value)} placeholder="Enter Customer Name" />
-          </div>
-          <div>
-            <label className="sr-field-row-label">Mobile</label>
-            <input className="sr-input" value={f.mobile} onChange={e => onSrFilterField('mobile', e.target.value)} placeholder="Enter Mobile Number" />
-          </div>
-          <div>
-            <label className="sr-field-row-label">Case Type</label>
-            <div className="sr-sel-wrap">
-              <select className="sr-sel" value={f.caseType} onChange={e => onSrFilterField('caseType', e.target.value)}>
-                <option value="">All case types</option>
-                {SR_CASE_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <span className="sr-sel-chevron">▾</span>
-            </div>
-          </div>
-          <div>
-            <label className="sr-field-row-label">Insurer</label>
-            <div className="sr-sel-wrap">
-              <select className="sr-sel" value={f.insurer} onChange={e => onSrFilterField('insurer', e.target.value)}>
-                <option value="">All insurers</option>
-                {SR_INSURERS.map(i => <option key={i} value={i}>{i}</option>)}
-              </select>
-              <span className="sr-sel-chevron">▾</span>
-            </div>
-          </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--neu-02)', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={f.myTickets}
+              onChange={e => onSrFilterField('myTickets', e.target.checked)}
+              style={{ accentColor: 'var(--pri-00)', width: 15, height: 15, cursor: 'pointer' }}
+            />
+            My Tickets
+          </label>
+        </div>
+
+        <div className="sr-filter-grid" style={{ gridTemplateColumns: 'repeat(6, 1fr)', marginBottom: 10 }}>
+          <TextField label="Request ID" value={f.reqId} onChange={sf('reqId')} placeholder="Enter Request ID" />
+          <TextField label="Policy Number" value={f.policyNumber} onChange={sf('policyNumber')} placeholder="Enter Policy Number" />
+          <TextField label="Proposal Number" value={f.proposalNumber} onChange={sf('proposalNumber')} placeholder="Enter Proposal Number" />
+          <TextField label="Customer Name" value={f.customerName} onChange={sf('customerName')} placeholder="Enter Customer Name" />
+          <TextField label="Mobile" value={f.mobile} onChange={sf('mobile')} placeholder="Enter Mobile Number" />
+          <SelectField label="Payment Mode" value={f.paymentMode} onChange={sf('paymentMode')} options={SR_PAYMENT_MODES} placeholder="Select Payment Mode" />
+        </div>
+
+        <div className="sr-filter-grid" style={{ gridTemplateColumns: 'repeat(6, 1fr)', marginBottom: 10 }}>
+          <TextField label="Email Id" value={f.email} onChange={sf('email')} placeholder="Enter Email Id" />
+          <SelectField label="Case Type" value={f.caseType} onChange={sf('caseType')} options={SR_CASE_TAGS} placeholder="Select Case Type" />
+          <SelectField label="Insurer" value={f.insurer} onChange={sf('insurer')} options={SR_INSURERS} placeholder="Select Insurer" />
+          <SelectField label="Policy Medium" value={f.medium} onChange={sf('medium')} options={['Online', 'Offline']} placeholder="Select Medium" />
+          <DateField label="Booking Date" value={f.bookingDate} onChange={sf('bookingDate')} />
+          <DateRangeField label="Requested Date Range" from={f.requestedFrom} to={f.requestedTo} onFrom={sf('requestedFrom')} onTo={sf('requestedTo')} />
+        </div>
+
+        <div className="sr-filter-grid" style={{ gridTemplateColumns: 'repeat(6, 1fr)', marginBottom: 10 }}>
+          <TextField label="Status" value={f.status} onChange={sf('status')} placeholder="e.g. Pending, Done…" />
+          <SelectField label="Policy Type" value={f.policyType} onChange={sf('policyType')} options={SR_POLICY_TYPES} placeholder="Select Policy Type" />
+          <SelectField label="Business Type" value={f.businessType} onChange={sf('businessType')} options={SR_BUSINESS_TYPES} placeholder="Select Business Type" />
+          <SelectField label="Source" value={f.source} onChange={sf('source')} options={SR_CHANNEL_TYPES} placeholder="Select Source" />
+          <DateRangeField label="Payment Date Range" from={f.paymentFrom} to={f.paymentTo} onFrom={sf('paymentFrom')} onTo={sf('paymentTo')} />
+          <SelectField label="Payment Method" value={f.paymentMethod} onChange={sf('paymentMethod')} options={SR_PAYMENT_METHODS} placeholder="Select Payment Method" />
         </div>
 
         {state.srMoreFiltersOpen && (
           <>
             <hr className="sr-divider" />
-            <div className="sr-filter-grid" style={{ marginBottom: 10 }}>
-              <div>
-                <label className="sr-field-row-label">Policy Number</label>
-                <input className="sr-input" value={f.policyNumber} onChange={e => onSrFilterField('policyNumber', e.target.value)} placeholder="Enter Policy Number" />
-              </div>
-              <div>
-                <label className="sr-field-row-label">Proposal Number</label>
-                <input className="sr-input" value={f.proposalNumber} onChange={e => onSrFilterField('proposalNumber', e.target.value)} placeholder="Enter Proposal Number" />
-              </div>
-              <div>
-                <label className="sr-field-row-label">Email Id</label>
-                <input className="sr-input" value={f.email} onChange={e => onSrFilterField('email', e.target.value)} placeholder="Enter Email Id" />
-              </div>
-              <div>
-                <label className="sr-field-row-label">Policy Medium</label>
-                <div className="sr-sel-wrap">
-                  <select className="sr-sel" value={f.medium} onChange={e => onSrFilterField('medium', e.target.value)}>
-                    <option value="">All mediums</option>
-                    <option value="Online">Online</option>
-                    <option value="Offline">Offline</option>
-                  </select>
-                  <span className="sr-sel-chevron">▾</span>
-                </div>
-              </div>
-              <div>
-                <label className="sr-field-row-label">Status contains</label>
-                <input className="sr-input" value={f.status} onChange={e => onSrFilterField('status', e.target.value)} placeholder="e.g. Pending, Done…" />
-              </div>
+            <div className="sr-filter-grid" style={{ gridTemplateColumns: 'repeat(6, 1fr)', marginBottom: 10 }}>
+              <SelectField label="Dealership Name" value={f.dealerName} onChange={sf('dealerName')} options={SR_DEALERS} placeholder="Select Dealer" />
+              <SelectField label="Channel Type" value={f.channelType} onChange={sf('channelType')} options={SR_CHANNEL_TYPES} placeholder="Select Channel Type" />
+              <SelectField label="Sub Source" value={f.subSource} onChange={sf('subSource')} options={SR_SOURCES} placeholder="Select Sub Source" />
+              <SelectField label="Assignee" value={f.assignee} onChange={sf('assignee')} options={SR_AGENTS} placeholder="Select Assignee" />
+              <SelectField label="Group Type" value={f.groupType} onChange={sf('groupType')} options={SR_GROUP_TYPES} placeholder="Select Group Type" />
+              <SelectField label="Retail Type" value={f.retailType} onChange={sf('retailType')} options={SR_RETAIL_TYPES} placeholder="Select Retail Type" />
             </div>
-            <div className="sr-filter-grid" style={{ marginBottom: 10 }}>
-              <div>
-                <label className="sr-field-row-label">Policy Type</label>
-                <div className="sr-sel-wrap">
-                  <select className="sr-sel" value={f.policyType} onChange={e => onSrFilterField('policyType', e.target.value)}>
-                    <option value="">All policy types</option>
-                    {SR_POLICY_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                  <span className="sr-sel-chevron">▾</span>
-                </div>
-              </div>
-              <div>
-                <label className="sr-field-row-label">Business Type</label>
-                <div className="sr-sel-wrap">
-                  <select className="sr-sel" value={f.businessType} onChange={e => onSrFilterField('businessType', e.target.value)}>
-                    <option value="">All business types</option>
-                    {SR_BUSINESS_TYPES.map(b => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                  <span className="sr-sel-chevron">▾</span>
-                </div>
-              </div>
-              <div>
-                <label className="sr-field-row-label">Source</label>
-                <div className="sr-sel-wrap">
-                  <select className="sr-sel" value={f.source} onChange={e => onSrFilterField('source', e.target.value)}>
-                    <option value="">All sources</option>
-                    {SR_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  <span className="sr-sel-chevron">▾</span>
-                </div>
-              </div>
-              <div>
-                <label className="sr-field-row-label">Payment Mode</label>
-                <div className="sr-sel-wrap">
-                  <select className="sr-sel" value={f.paymentMode} onChange={e => onSrFilterField('paymentMode', e.target.value)}>
-                    <option value="">All payment modes</option>
-                    {SR_PAYMENT_MODES.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                  <span className="sr-sel-chevron">▾</span>
-                </div>
-              </div>
+            <div className="sr-filter-grid" style={{ gridTemplateColumns: 'repeat(6, 1fr)', marginBottom: 10 }}>
+              <SelectField label="Medical Type" value={f.medicalType} onChange={sf('medicalType')} options={[]} placeholder="Select Medical Type" />
+              <SelectField label="Booked By" value={f.bookedBy} onChange={sf('bookedBy')} options={SR_BOOKED_BY} placeholder="Select Booking Type" />
+              <DateRangeField label="Cancellation Date Range" from={f.cancellationFrom} to={f.cancellationTo} onFrom={sf('cancellationFrom')} onTo={sf('cancellationTo')} />
+              <SelectField label="Dealer MVT" value={f.dealerMVT} onChange={sf('dealerMVT')} options={SR_YES_NO} placeholder="Select Dealer Movement" />
+              <SelectField label="Is Bulk Uploaded" value={f.isBulkUploaded} onChange={sf('isBulkUploaded')} options={SR_YES_NO} placeholder="Select" />
+              <DateRangeField label="Policy End Date Range" from={f.policyEndFrom} to={f.policyEndTo} onFrom={sf('policyEndFrom')} onTo={sf('policyEndTo')} />
             </div>
           </>
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
           <button className="sr-more-filters-btn" onClick={onSrToggleMoreFilters}>
-            {state.srMoreFiltersOpen ? '▴ Fewer filters' : '▾ More filters (10)'}
+            {state.srMoreFiltersOpen ? '− Basic Filters' : '+ More Filters'}
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
+            <button className="sr-btn sr-btn-success" onClick={onSrSearch}>Search</button>
+            <button className="sr-btn sr-btn-warning" onClick={onSrCount}>Count</button>
             <button className="sr-btn sr-btn-ghost" onClick={onSrResetFilters}>Reset</button>
-            <button className="sr-btn sr-btn-primary" onClick={onSrSearch}>Search</button>
           </div>
         </div>
       </div>
 
       <div className="sr-result-bar">
-        <span className="sr-result-count">{rows.length} request{rows.length !== 1 ? 's' : ''} found</span>
+        <span className="sr-result-count">
+          {f.requestedFrom && f.requestedTo
+            ? `(Data has been shown on request date from ${f.requestedFrom} to ${f.requestedTo})`
+            : `${rows.length} request${rows.length !== 1 ? 's' : ''} found`}
+        </span>
+        <button className="sr-icon-btn" title="Download" onClick={onSrDownload}>⬇</button>
+      </div>
+
+      <div className="sr-tabs-line" style={{ marginBottom: 14 }}>
+        {SR_QUICK_TABS.map(tab => (
+          <button
+            key={tab}
+            className={`sr-tab-item${state.srActiveTab === tab ? ' active' : ''}`}
+            onClick={() => { onSrSetActiveTab(tab); if (tab === 'All') onSrResetFilters(); }}
+          >
+            {tab}
+          </button>
+        ))}
       </div>
 
       <div className="sr-card" style={{ marginBottom: 0 }}>
@@ -175,21 +173,24 @@ export function RequestList() {
           <table className="sr-table">
             <thead>
               <tr>
-                <th>Request</th>
-                <th>Customer</th>
-                <th>Channel / Source</th>
+                <th>Request Id</th>
+                <th>Request Date</th>
+                <th>Customer Name</th>
+                <th>Channel Type</th>
+                <th>Sub Source</th>
                 <th>Ageing</th>
                 <th>Channel Partner / City</th>
-                <th>Case / Policy</th>
-                <th>Insurer</th>
+                <th>Case Type / Policy Type</th>
+                <th>Policy Number</th>
+                <th>Insurer Name</th>
                 <th>Status</th>
-                <th>Assigned To</th>
+                <th>Assigned to</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 && (
-                <tr><td colSpan={10}><div className="sr-empty-state">No service requests match your filters.<br />Try adjusting or resetting your search.</div></td></tr>
+                <tr><td colSpan={13}><div className="sr-empty-state">No service requests match your filters.<br />Try adjusting or resetting your search.</div></td></tr>
               )}
               {rows.map(r => {
                 const status = `${r.caseType} ${r.statusSel}`.trim();
@@ -199,19 +200,21 @@ export function RequestList() {
                   <tr key={r.id}>
                     <td>
                       <button className="sr-row-link" onClick={() => onSrOpenDetails(r.id)}>{r.id}</button>
-                      <div style={{ fontSize: 11, color: 'var(--neu-04)', marginTop: 2 }}>{r.requestDate}</div>
                     </td>
+                    <td style={{ fontSize: 12.5 }}>{r.requestDate}</td>
                     <td>
                       <div style={{ fontWeight: 500 }}>{r.customerName}</div>
                       <div style={{ fontSize: 11, color: 'var(--neu-04)', marginTop: 2 }}>{r.mobile}</div>
                     </td>
-                    <td style={{ fontSize: 12.5 }}>{r.channelType}<div style={{ fontSize: 11, color: 'var(--neu-04)' }}>{r.subSource}</div></td>
+                    <td style={{ fontSize: 12.5 }}>{r.channelType} / {r.medium}</td>
+                    <td style={{ fontSize: 12.5 }}>{r.subSource}</td>
                     <td>
                       <span className="sr-ageing-dot" style={{ background: ageColor.color }} />
                       <span style={{ marginLeft: 6, fontSize: 12.5 }}>{r.ageingLabel}</span>
                     </td>
-                    <td style={{ fontSize: 12.5 }}>{r.channelPartner}<div style={{ fontSize: 11, color: 'var(--neu-04)' }}>{r.city}</div></td>
-                    <td style={{ fontSize: 12.5 }}>{r.caseTag} / {r.policyTag}<div style={{ fontSize: 11, color: 'var(--neu-04)' }}>{r.policyNumber}</div></td>
+                    <td style={{ fontSize: 12.5 }}>{r.channelPartner} / {r.city}</td>
+                    <td style={{ fontSize: 12.5 }}>{r.caseTag} / {r.policyTag}</td>
+                    <td style={{ fontSize: 12.5 }}>{r.policyNumber}</td>
                     <td style={{ fontSize: 12.5 }}>{r.insurerName}</td>
                     <td>
                       <span className="sr-badge" style={{ background: statusColor.bg, color: statusColor.color }}>{status}</span>
@@ -230,9 +233,7 @@ export function RequestList() {
                         <span className="sr-sel-chevron">▾</span>
                       </div>
                     </td>
-                    <td>
-                      <button className="sr-btn sr-btn-outline" style={{ height: 30, fontSize: 12 }} onClick={() => onSrOpenDetails(r.id)}>Open</button>
-                    </td>
+                    <td></td>
                   </tr>
                 );
               })}

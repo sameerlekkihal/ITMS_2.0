@@ -193,11 +193,21 @@ export const SR_AGENTS = ['Lalita Bisht', 'Dheeraj Shukla', 'Shah Nidhi', 'Devmu
 export const SR_INSURERS = ['ICICI Lombard', 'Star Health', 'Universal Sompo General Insurance Co. Ltd.', 'Aditya Birla Health Insurance Co Ltd', 'Bajaj Allianz General Insurance Co Ltd', 'HDFC ERGO General Insurance Company'];
 export const SR_CASE_TYPES = ['Medical', 'Welcome Call', 'Booked Verification Call', 'Proposal Payment Link', 'Payment Done Policy'];
 export const SR_STATUS_OPTIONS = ['Pending', 'Done', 'Generated', 'Unavailable', 'In Progress', 'Completed'];
-export const SR_POLICY_TYPES = ['Base Plan', 'Super Topup', 'Family Floater'];
+export const SR_POLICY_TYPES = ['STP', 'NSTP'];
 export const SR_BUSINESS_TYPES = ['Retail', 'Group'];
 export const SR_SOURCES = ['POS', 'Online', 'CRM Offline'];
 export const SR_PAYMENT_MODES = ['online', 'offline', 'NEFT'];
 export const SR_PAYMENT_METHODS = ['Payment Link', 'Netbanking', 'Card', 'UPI'];
+export const SR_CASE_TAGS = ['New', 'Renew', 'Port Fresh', 'Port Renewal'];
+export const SR_CHANNEL_TYPES = ['AGENCY', 'CRM-OFFLINE'];
+export const SR_GROUP_TYPES = ['Group Mediclaim', 'Group Personal Accidental'];
+export const SR_RETAIL_TYPES = ['Retail Personal Accidental', 'Retail Mediclaim'];
+export const SR_BOOKED_BY = ['Auto', 'Manual'];
+export const SR_YES_NO = ['Yes', 'No'];
+export const SR_DEALERS = [
+  'Mrs Rajni Devi', 'Shinde Ajit Pralhad', 'Bhyrappa V H (POS)', 'Param Kaushal Shah',
+  'Donga Punita Bhadreshkumar DSA', 'Miss Nakka Vidyavathi', 'Mr Daarrpan Rajeshbhai Shah', 'Subhash Kumar',
+];
 export const SR_PENDING_REASONS = ['Case not picked', 'Customer not reachable', 'Documents awaited', 'Payment awaited', 'KYC pending', 'Others'];
 export const SR_PENDING_WITH = ['Lalita Bisht', 'Dheeraj Shukla', 'Shah Nidhi', 'Devmurari Pawel', 'Praphull Kumar', 'Zonal Ops Team', 'Customer'];
 

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import type {
-  AppUser, AppRole, ToastState, PageKey, IpApprover, IpUserRequest, CuRequest, CuConfig, CuStatus, SrRequest, SrFilters,
+  AppUser, AppRole, ToastState, PageKey, IpApprover, IpUserRequest, CuRequest, CuConfig, CuStatus, SrRequest, SrFilters, SrQuickTab,
   ChrFormState, ChrInsuredMember, AbBucket, AbFilters, AbRule, ArFilters, ArField, ArFieldKey, QcPersona, QcPeriod, QcTab, QcFilters, QcDrilldown,
 } from '../types';
 import {
@@ -121,6 +121,7 @@ export interface AppState {
   srRequests: SrRequest[];
   srFilters: SrFilters;
   srMoreFiltersOpen: boolean;
+  srActiveTab: SrQuickTab;
   srRemarksDraft: string;
   srActivityFilter: string;
   srDirty: boolean;
@@ -295,11 +296,15 @@ const initialState: AppState = {
   srActiveId: null,
   srRequests: INIT_SR_REQUESTS,
   srFilters: {
-    reqId: '', policyNumber: '', proposalNumber: '', customerName: '', mobile: '', email: '',
-    caseType: '', insurer: '', medium: '', status: '', policyType: '', businessType: '',
-    source: '', paymentMode: '', paymentMethod: '', myTickets: false,
+    reqId: '', policyNumber: '', proposalNumber: '', customerName: '', mobile: '', paymentMode: '',
+    email: '', caseType: '', insurer: '', medium: '', bookingDate: '', requestedFrom: '', requestedTo: '',
+    status: '', policyType: '', businessType: '', source: '',
+    dealerName: '', channelType: '', subSource: '', assignee: '', groupType: '', retailType: '', medicalType: '', bookedBy: '',
+    cancellationFrom: '', cancellationTo: '', dealerMVT: '', isBulkUploaded: '', policyEndFrom: '', policyEndTo: '',
+    paymentFrom: '', paymentTo: '', paymentMethod: '', myTickets: false,
   },
   srMoreFiltersOpen: false,
+  srActiveTab: 'All',
   srRemarksDraft: '',
   srActivityFilter: 'All',
   srDirty: false,
@@ -758,6 +763,14 @@ function useAppStoreValue() {
   // ---- service requests (health case module) ----
   const srFilteredRequests = useCallback((s: AppState = state) => {
     const f = s.srFilters;
+    const dateOnly = (v: string) => v.slice(0, 10);
+    const inRange = (dateStr: string, from: string, to: string) => {
+      if (!from && !to) return true;
+      const d = dateOnly(dateStr);
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    };
     return s.srRequests.filter(r => {
       const compositeStatus = `${r.caseType} ${r.statusSel}`.trim();
       const mReq = !f.reqId || r.id.includes(f.reqId) || r.ticketDisplayId.toLowerCase().includes(f.reqId.toLowerCase());
@@ -765,39 +778,61 @@ function useAppStoreValue() {
       const mProposal = !f.proposalNumber || r.proposalNo.toLowerCase().includes(f.proposalNumber.toLowerCase());
       const mCustomer = !f.customerName || r.customerName.toLowerCase().includes(f.customerName.toLowerCase());
       const mMobile = !f.mobile || r.mobile.includes(f.mobile);
+      const mPaymentMode = !f.paymentMode || r.quote.paymentMode === f.paymentMode;
       const mEmail = !f.email || r.email.toLowerCase().includes(f.email.toLowerCase());
-      const mCaseType = !f.caseType || r.caseType === f.caseType;
+      const mCaseType = !f.caseType || r.caseTag === f.caseType;
       const mInsurer = !f.insurer || r.insurerName === f.insurer;
       const mMedium = !f.medium || r.medium === f.medium;
+      const mBookingDate = !f.bookingDate || dateOnly(r.requestDate) === f.bookingDate;
+      const mRequestedRange = inRange(r.requestDate, f.requestedFrom, f.requestedTo);
       const mStatus = !f.status || compositeStatus.toLowerCase().includes(f.status.toLowerCase());
-      const mPolicyType = !f.policyType || r.policyType === f.policyType;
+      const mPolicyType = !f.policyType || r.policyTag === f.policyType;
       const mBusinessType = !f.businessType || r.businessType === f.businessType;
-      const mSource = !f.source || r.subSource === f.source;
-      const mPaymentMode = !f.paymentMode || r.quote.paymentMode === f.paymentMode;
+      const mSource = !f.source || r.channelType === f.source;
+      const mDealerName = !f.dealerName || r.dealerName === f.dealerName;
+      const mChannelType = !f.channelType || r.channelType === f.channelType;
+      const mSubSource = !f.subSource || r.subSource === f.subSource;
+      const mAssignee = !f.assignee || r.assignedTo === f.assignee;
+      const mPolicyEndRange = inRange(r.quote.policyEndDate, f.policyEndFrom, f.policyEndTo);
+      const mPaymentRange = (!f.paymentFrom && !f.paymentTo) || r.transactions.some(t => inRange(t.txnTime, f.paymentFrom, f.paymentTo));
       const mMy = !f.myTickets || r.assignedTo === 'Lalita Bisht';
-      return mReq && mPolicy && mProposal && mCustomer && mMobile && mEmail && mCaseType && mInsurer
-        && mMedium && mStatus && mPolicyType && mBusinessType && mSource && mPaymentMode && mMy;
+      const mTab = s.srActiveTab === 'Unbooked (STP)' ? r.policyTag === 'STP' && (r.policyNumber === '0' || !r.policyNumber)
+        : s.srActiveTab === 'Upcoming Renewals' ? r.caseTag === 'Renew'
+        : s.srActiveTab === 'Pre QC' ? r.caseType === 'Medical'
+        : true;
+      return mReq && mPolicy && mProposal && mCustomer && mMobile && mPaymentMode && mEmail && mCaseType && mInsurer
+        && mMedium && mBookingDate && mRequestedRange && mStatus && mPolicyType && mBusinessType && mSource && mDealerName
+        && mChannelType && mSubSource && mAssignee && mPolicyEndRange && mPaymentRange && mMy && mTab;
     });
   }, [state]);
 
   const onSrFilterField = useCallback((field: keyof SrFilters, value: string | boolean) => update(s => ({ srFilters: { ...s.srFilters, [field]: value } })), [update]);
   const onSrToggleMoreFilters = useCallback(() => update(s => ({ srMoreFiltersOpen: !s.srMoreFiltersOpen })), [update]);
+  const onSrSetActiveTab = useCallback((tab: SrQuickTab) => update({ srActiveTab: tab }), [update]);
   const onSrSearch = useCallback(() => {
     setState(s => {
       showToast(`Showing ${srFilteredRequests(s).length} request${srFilteredRequests(s).length !== 1 ? 's' : ''}`);
       return s;
     });
   }, [showToast, srFilteredRequests]);
+  const onSrCount = useCallback(() => {
+    setState(s => {
+      const n = srFilteredRequests(s).length;
+      showToast(`Count: ${n} request${n !== 1 ? 's' : ''} match your filters`);
+      return s;
+    });
+  }, [showToast, srFilteredRequests]);
+  const onSrDownload = useCallback(() => showToast('Download started — you will be notified when the report is ready'), [showToast]);
   const onSrResetFilters = useCallback(() => update({
     srFilters: {
-      reqId: '', policyNumber: '', proposalNumber: '', customerName: '', mobile: '', email: '',
-      caseType: '', insurer: '', medium: '', status: '', policyType: '', businessType: '',
-      source: '', paymentMode: '', paymentMethod: '', myTickets: false,
+      reqId: '', policyNumber: '', proposalNumber: '', customerName: '', mobile: '', paymentMode: '',
+      email: '', caseType: '', insurer: '', medium: '', bookingDate: '', requestedFrom: '', requestedTo: '',
+      status: '', policyType: '', businessType: '', source: '',
+      dealerName: '', channelType: '', subSource: '', assignee: '', groupType: '', retailType: '', medicalType: '', bookedBy: '',
+      cancellationFrom: '', cancellationTo: '', dealerMVT: '', isBulkUploaded: '', policyEndFrom: '', policyEndTo: '',
+      paymentFrom: '', paymentTo: '', paymentMethod: '', myTickets: false,
     },
   }), [update]);
-  const onSrQuickChip = useCallback((field: keyof SrFilters, value: string) => update(s => ({
-    srFilters: { ...s.srFilters, [field]: s.srFilters[field] === value ? '' : value },
-  })), [update]);
 
   const onSrOpenDetails = useCallback((id: string) => update({ srSubView: 'details', srActiveId: id, srRemarksDraft: '', srActivityFilter: 'All', srDirty: false }), [update]);
   const onSrBackToList = useCallback(() => update({ srSubView: 'list', srActiveId: null }), [update]);
@@ -1180,7 +1215,7 @@ function useAppStoreValue() {
     cuFilteredRequests, setCuPersona, onCuNewRequest, onCuBackToList, onCuFormField, onCuSubmitRequest,
     onCuOpenReview, onCuConfigField, onCuCreateUser, onCuOpenReject, onCuCloseReject, onCuConfirmReject,
     onCuOpenLog, onCuCloseLog, onCuCloseEmail,
-    srFilteredRequests, onSrFilterField, onSrToggleMoreFilters, onSrSearch, onSrResetFilters, onSrQuickChip,
+    srFilteredRequests, onSrFilterField, onSrToggleMoreFilters, onSrSetActiveTab, onSrSearch, onSrCount, onSrDownload, onSrResetFilters,
     onSrOpenDetails, onSrBackToList, onSrSetCaseType, onSrSetStatus, onSrToggleCommunication,
     onSrPendingReasonChange, onSrClearPendingReason, onSrPendingWithChange, onSrAssignedToChange, onSrSaveCase,
     onSrRemarksDraftChange, onSrSaveRemarks, setSrActivityFilter,

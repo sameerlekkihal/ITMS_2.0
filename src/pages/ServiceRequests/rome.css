@@ -107,6 +107,10 @@
 .sr-btn-outline:hover:not(:disabled) { background: var(--sec-08); }
 .sr-btn-ghost { background: transparent; color: var(--neu-02); border: 1px solid var(--neu-06); }
 .sr-btn-ghost:hover:not(:disabled) { background: var(--neu-09); }
+.sr-btn-success { background: var(--success); color: #fff; }
+.sr-btn-success:hover:not(:disabled) { background: #337f52; box-shadow: var(--sh-sm); }
+.sr-btn-warning { background: var(--warning); color: #fff; }
+.sr-btn-warning:hover:not(:disabled) { background: #b87d24; box-shadow: var(--sh-sm); }
 .sr-btn:focus-visible { outline: 3px solid var(--sec-00); outline-offset: 2px; }
 
 /* ── Divider ── */

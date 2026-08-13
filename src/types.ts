@@ -117,6 +117,7 @@ export interface SrInsuredMember {
   height: string;
   weight: string;
   annualIncome: string;
+  sufferingFrom: string;
 }
 
 export interface SrTransaction {
@@ -124,6 +125,60 @@ export interface SrTransaction {
   status: string;
   txnId: string;
   paymentProof: string;
+}
+
+export interface SrPaymentEntry {
+  paymentMode: string;
+  amount: string;
+  subAmount: string;
+  transactionId: string;
+  chequeNumber: string;
+  linkedPolicy: string;
+}
+
+export interface SrDealerUser {
+  name: string;
+  email: string;
+  mobile: string;
+}
+
+export interface SrDealerDetails {
+  gcdCode: string;
+  mobile: string;
+  address: string;
+  rap: string;
+  mPosGcd: string;
+  mPosName: string;
+  users: SrDealerUser[];
+}
+
+export interface SrProposerDetails {
+  gender: string;
+  dob: string;
+  maritalStatus: string;
+  altMobile: string;
+  altEmail: string;
+  address: string;
+  pincode: string;
+  state: string;
+  city: string;
+  area: string;
+  aadhaar: string;
+  annualIncome: string;
+  occupation: string;
+  gstNumber: string;
+  panCard: string;
+  nomineeName: string;
+  nomineeRelation: string;
+  nomineeAge: string;
+}
+
+export interface SrPreviousPolicy {
+  previousPolicyNo: string;
+  policyExpiryDate: string;
+  previousInsurer: string;
+  portReason: string;
+  gibplPreviousPolicy: string;
 }
 
 export interface SrPaymentReminder {
@@ -195,6 +250,10 @@ export interface SrRequest {
   quote: SrQuote;
   transactions: SrTransaction[];
   paymentReminders: SrPaymentReminder[];
+  payments: SrPaymentEntry[];
+  dealerDetails: SrDealerDetails;
+  proposerDetails: SrProposerDetails;
+  previousPolicy: SrPreviousPolicy;
 
   communication: boolean;
   pendingReason: string;

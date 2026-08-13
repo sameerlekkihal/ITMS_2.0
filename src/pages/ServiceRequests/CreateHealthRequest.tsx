@@ -1,7 +1,7 @@
 import './rome.css';
 import { useState, type ReactNode } from 'react';
 import { useAppStore } from '../../store/AppStore';
-import { chrIsValid, chrEffectiveMembers } from '../../store/AppStore';
+import { chrIsValid, chrEffectiveMembers, chrFieldErrors } from '../../store/AppStore';
 import {
   SR_BROKERS, SR_INSURERS, CHR_CASE_TYPES, CHR_GENDERS, CHR_TENURES, CHR_SUM_INSURED,
   CHR_COUNT_OPTIONS, CHR_PLANS_BY_INSURER, CHR_PLAN_TYPE_LOOKUP, CHR_DEALER_LOOKUP, CHR_PINCODE_LOOKUP,
@@ -21,13 +21,13 @@ function Collapsible({ title, children, defaultOpen = true }: { title: string; c
   );
 }
 
-function Row({ label, required, hint, children }: { label: string; required?: boolean; hint?: string; children: ReactNode }) {
+function Row({ label, required, hint, error, children }: { label: string; required?: boolean; hint?: string; error?: string; children: ReactNode }) {
   return (
     <div className="sr-form-row">
       <div className="sr-form-row-label">{label}{required && <span className="sr-required">*</span>}</div>
       <div className="sr-form-row-control">
         {children}
-        {hint && <div className="sr-derived-hint">{hint}</div>}
+        {error ? <div style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}>{error}</div> : hint && <div className="sr-derived-hint">{hint}</div>}
       </div>
     </div>
   );
@@ -108,6 +108,7 @@ export function CreateHealthRequest() {
   const isPort = f.caseType === 'Port Fresh' || f.caseType === 'Port Renewal';
   const effectiveMembers = chrEffectiveMembers(f);
   const canSubmit = chrIsValid(f);
+  const errors = chrFieldErrors(f);
 
   function handleReset() {
     onChrReset();
@@ -151,13 +152,13 @@ export function CreateHealthRequest() {
           </Row>
 
           {isRenewal && (
-            <Row label="Previous Policy Number" required hint={f.previousPolicyNumber && f.previousPolicyNumber.trim().length < 6 ? 'Policy number looks too short — please double-check.' : undefined}>
+            <Row label="Previous Policy Number" required error={errors.previousPolicyNumber}>
               <input className="sr-input" value={f.previousPolicyNumber} onChange={e => onChrFormField('previousPolicyNumber', e.target.value)} placeholder="Enter Previous Policy Number" />
             </Row>
           )}
           {isPort && (
             <>
-              <Row label="Previous Policy Number" required hint={f.previousPolicyNumber && f.previousPolicyNumber.trim().length < 6 ? 'Policy number looks too short — please double-check.' : undefined}>
+              <Row label="Previous Policy Number" required error={errors.previousPolicyNumber}>
                 <input className="sr-input" value={f.previousPolicyNumber} onChange={e => onChrFormField('previousPolicyNumber', e.target.value)} placeholder="Enter Previous Policy Number" />
               </Row>
               <Row label="First Inception Date" required>
@@ -256,10 +257,10 @@ export function CreateHealthRequest() {
 
         <Collapsible title="Proposer and Insured Details">
           <div className="sr-subheading">Proposer Details</div>
-          <Row label="Proposer First Name" required>
+          <Row label="Proposer First Name" required error={errors.proposerFirstName}>
             <input className="sr-input" value={f.proposerFirstName} onChange={e => onChrFormField('proposerFirstName', e.target.value)} placeholder="First Name" />
           </Row>
-          <Row label="Proposer Last Name">
+          <Row label="Proposer Last Name" error={errors.proposerLastName}>
             <input className="sr-input" value={f.proposerLastName} onChange={e => onChrFormField('proposerLastName', e.target.value)} placeholder="Last Name" />
           </Row>
           <Row label="Proposer DOB" required>
@@ -274,16 +275,16 @@ export function CreateHealthRequest() {
               <span className="sr-sel-chevron">▾</span>
             </div>
           </Row>
-          <Row label="Email" required>
+          <Row label="Email" required error={errors.email}>
             <input className="sr-input" type="email" value={f.email} onChange={e => onChrFormField('email', e.target.value)} placeholder="Email" />
           </Row>
-          <Row label="Mobile" required>
+          <Row label="Mobile" required error={errors.mobile}>
             <input className="sr-input" value={f.mobile} onChange={e => onChrFormField('mobile', e.target.value)} placeholder="Mobile" />
           </Row>
-          <Row label="Address" required>
+          <Row label="Address" required error={errors.address}>
             <input className="sr-input" value={f.address} onChange={e => onChrFormField('address', e.target.value)} placeholder="Address" />
           </Row>
-          <Row label="Pincode" required hint="Try 110001, 400001, 380001, 560001 or 500001 to auto-fill City / State / Area">
+          <Row label="Pincode" required error={errors.pincode} hint="Try 110001, 400001, 380001, 560001 or 500001 to auto-fill City / State / Area">
             <input className="sr-input" value={f.pincode} onChange={e => onChrFormField('pincode', e.target.value)} placeholder="Pincode" />
           </Row>
           <Row label="City" required>
@@ -307,23 +308,36 @@ export function CreateHealthRequest() {
 
           <hr className="sr-divider" />
           <div className="sr-subheading">Insured Details</div>
+          {errors.relationship && effectiveMembers.length > 0 && (
+            <div style={{ fontSize: 11.5, color: 'var(--error)', marginBottom: 10 }}>{errors.relationship}</div>
+          )}
           {effectiveMembers.length === 0 ? (
             <div className="sr-empty-state">Select the number of Adults / Children in Basic Details to capture their insured details here.</div>
           ) : (
             effectiveMembers.map((m, i) => {
               const isSyncedProposer = i === 0 && f.proposerSameAsInsurer;
+              const memberErrors = errors.members[i] || {};
               return (
                 <div className="sr-member-card" key={i}>
                   <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 10, color: 'var(--neu-02)' }}>
                     {m.memberType} {f.insuredMembers.slice(0, i + 1).filter(x => x.memberType === m.memberType).length}
                     {isSyncedProposer && <span style={{ marginLeft: 8, fontWeight: 400, color: 'var(--sec-02)' }}>· Same as Proposer</span>}
                   </div>
-                  <div className="sr-field-grid-2" style={{ display: 'grid', marginBottom: 10 }}>
-                    <input className={`sr-input${isSyncedProposer ? ' sr-derived' : ''}`} disabled={isSyncedProposer} value={m.firstName} onChange={e => onChrMemberField(i, 'firstName', e.target.value)} placeholder="First Name *" />
-                    <input className={`sr-input${isSyncedProposer ? ' sr-derived' : ''}`} disabled={isSyncedProposer} value={m.lastName} onChange={e => onChrMemberField(i, 'lastName', e.target.value)} placeholder="Last Name" />
+                  <div className="sr-field-grid-2" style={{ display: 'grid', marginBottom: 4 }}>
+                    <div>
+                      <input className={`sr-input${isSyncedProposer ? ' sr-derived' : ''}`} disabled={isSyncedProposer} value={m.firstName} onChange={e => onChrMemberField(i, 'firstName', e.target.value)} placeholder="First Name *" />
+                      {memberErrors.firstName && <div style={{ fontSize: 11, color: 'var(--error)', marginTop: 3 }}>{memberErrors.firstName}</div>}
+                    </div>
+                    <div>
+                      <input className={`sr-input${isSyncedProposer ? ' sr-derived' : ''}`} disabled={isSyncedProposer} value={m.lastName} onChange={e => onChrMemberField(i, 'lastName', e.target.value)} placeholder="Last Name" />
+                      {memberErrors.lastName && <div style={{ fontSize: 11, color: 'var(--error)', marginTop: 3 }}>{memberErrors.lastName}</div>}
+                    </div>
                   </div>
                   <div className="sr-field-grid-3" style={{ display: 'grid', marginBottom: 10 }}>
-                    <input className={`sr-input${isSyncedProposer ? ' sr-derived' : ''}`} disabled={isSyncedProposer} type="date" max={TODAY_ISO} value={m.dob} onChange={e => onChrMemberField(i, 'dob', e.target.value)} />
+                    <div>
+                      <input className={`sr-input${isSyncedProposer ? ' sr-derived' : ''}`} disabled={isSyncedProposer} type="date" max={TODAY_ISO} value={m.dob} onChange={e => onChrMemberField(i, 'dob', e.target.value)} />
+                      {memberErrors.dob && <div style={{ fontSize: 11, color: 'var(--error)', marginTop: 3 }}>{memberErrors.dob}</div>}
+                    </div>
                     <div className="sr-sel-wrap">
                       <select className={`sr-sel${isSyncedProposer ? ' sr-derived' : ''}`} disabled={isSyncedProposer} value={m.gender} onChange={e => onChrMemberField(i, 'gender', e.target.value)}>
                         <option value="">Select Gender *</option>
@@ -390,8 +404,8 @@ export function CreateHealthRequest() {
 
           {f.paymentMode === 'Cheque' && (
             <>
-              <Row label="Cheque Number" required>
-                <input className="sr-input" value={f.chequeNumber} onChange={e => onChrFormField('chequeNumber', e.target.value.replace(/[^0-9A-Za-z]/g, ''))} placeholder="Enter Cheque Number" />
+              <Row label="Cheque Number" required error={errors.chequeNumber}>
+                <input className="sr-input" value={f.chequeNumber} onChange={e => onChrFormField('chequeNumber', e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} placeholder="Enter Cheque Number" />
               </Row>
               <Row label="Issuing Bank" required>
                 <div className="sr-sel-wrap">
@@ -408,7 +422,7 @@ export function CreateHealthRequest() {
               <Row label="Upload Acknowledgement Receipt">
                 <FileField fileName={f.chequeAckFileName} onPick={name => onChrFormField('chequeAckFileName', name)} accept=".pdf,.jpg,.jpeg,.png" resetKey={resetKey} />
               </Row>
-              <Row label="Cheque Amount" required>
+              <Row label="Cheque Amount" required error={errors.chequeAmount}>
                 <input className="sr-input" value={f.chequeAmount} onChange={e => onChrFormField('chequeAmount', e.target.value.replace(/[^0-9]/g, ''))} placeholder="Whole rupees only" />
               </Row>
               <Row label="Cheque Date" hint="Must be within 6 months of today">
@@ -420,7 +434,7 @@ export function CreateHealthRequest() {
           <Row label="Policy Payment Date">
             <input className="sr-input" type="date" value={f.paymentDate} onChange={e => onChrFormField('paymentDate', e.target.value)} />
           </Row>
-          <Row label="Proposal Number" required>
+          <Row label="Proposal Number" required error={errors.proposalNumber}>
             <input className="sr-input" value={f.proposalNumber} onChange={e => onChrFormField('proposalNumber', e.target.value)} placeholder="Proposal Number" />
           </Row>
           <Row label="EMI" required>
@@ -442,7 +456,7 @@ export function CreateHealthRequest() {
               </Row>
             </>
           )}
-          <Row label="Total Premium" required>
+          <Row label="Total Premium" required error={errors.totalPremium}>
             <input className="sr-input" value={f.totalPremium} onChange={e => onChrFormField('totalPremium', e.target.value.replace(/[^0-9]/g, ''))} placeholder="Enter Total Premium" />
           </Row>
           <Row label="Premium Tax (GST)" required>

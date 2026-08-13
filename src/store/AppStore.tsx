@@ -1,12 +1,13 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import type {
-  AppUser, AppRole, ToastState, PageKey, IpApprover, IpUserRequest, CuRequest, CuConfig, CuStatus, SrRequest, SrFilters, SrQuickTab,
+  AppUser, AppRole, ToastState, PageKey, IpApprover, IpUserRequest, CuRequest, CuConfig, CuStatus, SrRequest, SrFilters, SrQuickTab, SrPaymentEntry,
   ChrFormState, ChrInsuredMember, AbBucket, AbFilters, AbRule, ArFilters, ArField, ArFieldKey, QcPersona, QcPeriod, QcTab, QcFilters, QcDrilldown,
 } from '../types';
 import {
   INIT_USERS, INIT_ROLES, INIT_IP_APPROVERS, INIT_IP_USERS, WF, INIT_USER_REQUESTS, CU_PERM_KEY, INIT_SR_REQUESTS,
   CHR_DEALER_LOOKUP, CHR_PLAN_TYPE_LOOKUP, INIT_AB_BUCKETS, INIT_AB_RULES, AB_ROSTER, QC_HIERARCHY,
 } from '../data/mockData';
+import { ageFromDob } from '../utils/date';
 
 export type UmSubView = 'list' | 'form';
 export type RmSubView = 'list' | 'form';
@@ -125,6 +126,9 @@ export interface AppState {
   srRemarksDraft: string;
   srActivityFilter: string;
   srDirty: boolean;
+  srPolicyEditOpen: boolean;
+  srPaymentModalOpen: boolean;
+  srPaymentDraft: { paymentMode: string; amount: string; subAmount: string; transactionId: string };
 
   hrExpanded: boolean;
   chrForm: ChrFormState;
@@ -212,6 +216,113 @@ export function chrEffectiveMembers(f: ChrFormState): ChrInsuredMember[] {
   });
 }
 
+export interface ChrMemberErrors {
+  firstName?: string;
+  lastName?: string;
+  dob?: string;
+}
+
+export interface ChrFieldErrors {
+  proposerFirstName?: string;
+  proposerLastName?: string;
+  email?: string;
+  mobile?: string;
+  address?: string;
+  pincode?: string;
+  proposalNumber?: string;
+  previousPolicyNumber?: string;
+  chequeNumber?: string;
+  chequeAmount?: string;
+  totalPremium?: string;
+  relationship?: string;
+  members: Record<number, ChrMemberErrors>;
+}
+
+const CHR_NAME_RE = /^[A-Za-z\s]+$/;
+const CHR_ALPHANUMERIC_RE = /^[A-Za-z0-9]+$/;
+
+export function chrFieldErrors(f: ChrFormState): ChrFieldErrors {
+  const errors: ChrFieldErrors = { members: {} };
+
+  const firstName = f.proposerFirstName.trim();
+  if (firstName) {
+    if (firstName.length < 2 || firstName.length > 50) errors.proposerFirstName = 'Must be 2–50 characters.';
+    else if (!CHR_NAME_RE.test(firstName)) errors.proposerFirstName = 'Alphabetic only — no digits.';
+  }
+  if (f.proposerLastName.trim()) {
+    if (f.proposerLastName !== f.proposerLastName.trim()) errors.proposerLastName = 'No leading or trailing spaces.';
+    else if (!CHR_NAME_RE.test(f.proposerLastName.trim())) errors.proposerLastName = 'Alphabetic only — no digits or special characters.';
+  }
+  const email = f.email.trim();
+  if (email) {
+    const atCount = (email.match(/@/g) || []).length;
+    const domain = email.split('@')[1] || '';
+    if (email.length > 254) errors.email = 'Maximum 254 characters.';
+    else if (/\s/.test(email)) errors.email = 'No spaces allowed.';
+    else if (atCount !== 1) errors.email = 'Must contain exactly one @.';
+    else if (!domain.includes('.')) errors.email = 'Domain must contain at least one dot.';
+  }
+  const mobile = f.mobile.trim();
+  if (mobile) {
+    if (!/^[0-9]{10}$/.test(mobile)) errors.mobile = 'Exactly 10 digits — no spaces, dashes or special characters.';
+    else if (/^[0-5]/.test(mobile)) errors.mobile = 'Must not start with 0, 1, 2, 3, 4 or 5.';
+  }
+  const address = f.address.trim();
+  if (address && (address.length < 10 || address.length > 200)) errors.address = 'Must be 10–200 characters.';
+  const pincode = f.pincode.trim();
+  if (pincode) {
+    if (!/^[0-9]{6}$/.test(pincode)) errors.pincode = 'Exactly 6 digits.';
+    else if (pincode.startsWith('0')) errors.pincode = 'Must not start with 0.';
+  }
+  if (f.proposalNumber.trim() && !CHR_ALPHANUMERIC_RE.test(f.proposalNumber.trim())) {
+    errors.proposalNumber = 'Alphanumeric only — no spaces or special characters.';
+  }
+  if (f.previousPolicyNumber.trim() && !CHR_ALPHANUMERIC_RE.test(f.previousPolicyNumber.trim())) {
+    errors.previousPolicyNumber = 'Must be alphanumeric.';
+  }
+  if (f.paymentMode === 'Cheque' && f.chequeNumber.trim() && !/^[0-9]{6}$/.test(f.chequeNumber.trim())) {
+    errors.chequeNumber = 'Must be exactly 6 digits, numeric only.';
+  }
+  if (f.paymentMode === 'Cheque' && f.chequeAmount.trim() && Number(f.chequeAmount) <= 0) {
+    errors.chequeAmount = 'Must be greater than zero.';
+  }
+  if (f.totalPremium.trim() && Number(f.totalPremium) <= 0) {
+    errors.totalPremium = 'Must be a positive value.';
+  }
+
+  const effective = chrEffectiveMembers(f);
+  effective.forEach((m, i) => {
+    const memberErrors: ChrMemberErrors = {};
+    const mFirst = m.firstName.trim();
+    if (mFirst) {
+      if (mFirst.length < 2 || mFirst.length > 50) memberErrors.firstName = 'Must be 2–50 characters.';
+      else if (!CHR_NAME_RE.test(mFirst)) memberErrors.firstName = 'Alphabetic only — no digits.';
+    }
+    if (m.lastName.trim() && !CHR_NAME_RE.test(m.lastName.trim())) memberErrors.lastName = 'Alphabetic only — no digits or special characters.';
+    if (m.dob && (m.relationship === 'Self' || m.relationship === 'Spouse')) {
+      const age = ageFromDob(m.dob);
+      if (age !== null && age < 18) memberErrors.dob = 'Self / Spouse must be at least 18 years old.';
+    }
+    if (Object.keys(memberErrors).length > 0) errors.members[i] = memberErrors;
+  });
+
+  if (effective.length > 0) {
+    const selfCount = effective.filter(m => m.relationship === 'Self').length;
+    if (selfCount === 0) errors.relationship = 'Exactly one member must have Relationship = Self.';
+    else if (selfCount > 1) errors.relationship = 'Only one member can have Relationship = Self.';
+  }
+
+  return errors;
+}
+
+function chrHasFieldErrors(errors: ChrFieldErrors): boolean {
+  return Boolean(
+    errors.proposerFirstName || errors.proposerLastName || errors.email || errors.mobile || errors.address ||
+    errors.pincode || errors.proposalNumber || errors.previousPolicyNumber || errors.chequeNumber || errors.chequeAmount ||
+    errors.totalPremium || errors.relationship || Object.keys(errors.members).length > 0,
+  );
+}
+
 export function chrIsValid(f: ChrFormState): boolean {
   if (!f.brokerName || !f.caseType || !f.policyType || !f.policyDocAvailable || !f.insurerName) return false;
   if (!f.adults || !f.dealerCode || !f.fusionLead || !f.localIssuance || !f.crossSell) return false;
@@ -234,6 +345,7 @@ export function chrIsValid(f: ChrFormState): boolean {
   for (const m of effective) {
     if (!m.firstName.trim() || !m.dob || !m.gender || !m.relationship) return false;
   }
+  if (chrHasFieldErrors(chrFieldErrors(f))) return false;
   return true;
 }
 
@@ -308,6 +420,9 @@ const initialState: AppState = {
   srRemarksDraft: '',
   srActivityFilter: 'All',
   srDirty: false,
+  srPolicyEditOpen: false,
+  srPaymentModalOpen: false,
+  srPaymentDraft: { paymentMode: '', amount: '', subAmount: '', transactionId: '' },
 
   hrExpanded: true,
   chrForm: emptyChrForm,
@@ -913,6 +1028,47 @@ function useAppStoreValue() {
   }, [showToast]);
   const setSrActivityFilter = useCallback((value: string) => update({ srActivityFilter: value }), [update]);
 
+  const onSrOpenPolicyEdit = useCallback(() => update({ srPolicyEditOpen: true }), [update]);
+  const onSrCancelPolicyEdit = useCallback(() => update({ srPolicyEditOpen: false }), [update]);
+  const onSrSavePolicyDetails = useCallback((patch: Partial<SrRequest>) => {
+    setState(s => {
+      const time = stamp();
+      const srRequests = s.srRequests.map(r => r.id === s.srActiveId ? {
+        ...r, ...patch,
+        activityLog: [{ type: 'edit' as const, text: 'Policy detail is updated', by: 'Jijo John', time }, ...r.activityLog],
+      } : r);
+      return { ...s, srRequests, srPolicyEditOpen: false };
+    });
+    showToast('Policy details updated');
+  }, [showToast]);
+
+  const onSrOpenPaymentModal = useCallback(() => update({
+    srPaymentModalOpen: true, srPaymentDraft: { paymentMode: '', amount: '', subAmount: '', transactionId: '' },
+  }), [update]);
+  const onSrClosePaymentModal = useCallback(() => update({ srPaymentModalOpen: false }), [update]);
+  const onSrPaymentDraftField = useCallback((field: keyof AppState['srPaymentDraft'], value: string) => update(s => ({
+    srPaymentDraft: { ...s.srPaymentDraft, [field]: value },
+  })), [update]);
+  const onSrSavePayment = useCallback(() => {
+    setState(s => {
+      const d = s.srPaymentDraft;
+      if (!d.paymentMode || !d.amount.trim() || !d.transactionId.trim()) {
+        showToast('Payment Mode, Amount and Transaction Id are required', 'error');
+        return s;
+      }
+      const time = stamp();
+      const entry: SrPaymentEntry = { paymentMode: d.paymentMode, amount: d.amount, subAmount: d.subAmount, transactionId: d.transactionId, chequeNumber: '', linkedPolicy: '' };
+      const srRequests = s.srRequests.map(r => r.id === s.srActiveId ? {
+        ...r, payments: [entry, ...r.payments],
+        activityLog: [{ type: 'create' as const, text: `Payment of ₹${d.amount} added via ${d.paymentMode}`, by: 'Jijo John', time }, ...r.activityLog],
+      } : r);
+      return { ...s, srRequests, srPaymentModalOpen: false };
+    });
+  }, [showToast]);
+  const onSrRemovePayment = useCallback((index: number) => update(s => ({
+    srRequests: s.srRequests.map(r => r.id === s.srActiveId ? { ...r, payments: r.payments.filter((_, i) => i !== index) } : r),
+  })), [update]);
+
   // ---- create health request (offline health lead) ----
   const onChrFormField = useCallback(<K extends keyof ChrFormState,>(field: K, value: ChrFormState[K]) => {
     update(s => {
@@ -1219,6 +1375,8 @@ function useAppStoreValue() {
     onSrOpenDetails, onSrBackToList, onSrSetCaseType, onSrSetStatus, onSrToggleCommunication,
     onSrPendingReasonChange, onSrClearPendingReason, onSrPendingWithChange, onSrAssignedToChange, onSrSaveCase,
     onSrRemarksDraftChange, onSrSaveRemarks, setSrActivityFilter,
+    onSrOpenPolicyEdit, onSrCancelPolicyEdit, onSrSavePolicyDetails,
+    onSrOpenPaymentModal, onSrClosePaymentModal, onSrPaymentDraftField, onSrSavePayment, onSrRemovePayment,
     onToggleHr, onChrFormField, onChrMemberField, onChrMemberPedToggle, onChrReset, onChrSubmit,
     abFilteredBuckets, onAbFilterField, onAbResetFilters, onAbOpenAdd, onAbOpenEdit, onAbCloseModal,
     onAbNameDraftChange, onAbDescDraftChange, onAbUserSearchChange, onAbAddUser, onAbRemoveUser, onAbToggleStatus,

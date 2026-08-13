@@ -1,6 +1,32 @@
 import { useState, type ReactNode } from 'react';
 import { useAppStore } from '../../store/AppStore';
-import { SR_AGENTS, SR_PENDING_REASONS, SR_PENDING_WITH, SR_CASE_TYPES, SR_STATUS_OPTIONS, SR_STATUS_COLOR } from '../../data/mockData';
+import {
+  SR_AGENTS, SR_PENDING_REASONS, SR_PENDING_WITH, SR_CASE_TYPES, SR_STATUS_OPTIONS, SR_STATUS_COLOR,
+  SR_INSURERS, SR_BROKERS, CHR_PAYMENT_MODES,
+} from '../../data/mockData';
+import { maskEmail, maskMobile } from '../../utils/mask';
+import { ageFromDob } from '../../utils/date';
+import type { SrRequest } from '../../types';
+
+type PolicyEditDraft = Pick<SrRequest,
+  'proposerName' | 'nstpReason' | 'insurerName' | 'medium' | 'channelType' | 'policySubSource' | 'dealerName' |
+  'proposalNo' | 'businessType' | 'freshDeskId' | 'groupPolicyType' | 'medicalType' | 'preRequestId' | 'brokerName' |
+  'localIssuance' | 'crossSell'>;
+
+function policyEditErrors(d: PolicyEditDraft): Partial<Record<keyof PolicyEditDraft, string>> {
+  const errors: Partial<Record<keyof PolicyEditDraft, string>> = {};
+  if (!d.proposerName.trim()) errors.proposerName = 'Proposer Name is required.';
+  else if (!/^[A-Za-z\s]{2,50}$/.test(d.proposerName.trim())) errors.proposerName = 'Alphabetic only, 2–50 characters.';
+  if (!d.insurerName) errors.insurerName = 'Insurer Name is required.';
+  if (!d.medium) errors.medium = 'Medium is required.';
+  if (!d.proposalNo.trim()) errors.proposalNo = 'Proposal No is required.';
+  else if (!/^[A-Za-z0-9]+$/.test(d.proposalNo.trim())) errors.proposalNo = 'Alphanumeric only — no spaces or special characters.';
+  if (!d.businessType) errors.businessType = 'Business Type is required.';
+  if (!d.brokerName) errors.brokerName = 'Broker Name is required.';
+  if (!d.localIssuance) errors.localIssuance = 'Local Issuance is required.';
+  if (!d.crossSell) errors.crossSell = 'Cross Sell is required.';
+  return errors;
+}
 
 function Field({ label, value }: { label: string; value?: string }) {
   const empty = !value || value === 'N/A';
@@ -51,28 +77,94 @@ export function CaseDetails() {
     state, onSrBackToList, onSrSetCaseType, onSrSetStatus, onSrToggleCommunication,
     onSrPendingReasonChange, onSrClearPendingReason, onSrPendingWithChange, onSrAssignedToChange, onSrSaveCase,
     onSrRemarksDraftChange, onSrSaveRemarks, setSrActivityFilter,
+    onSrOpenPolicyEdit, onSrCancelPolicyEdit, onSrSavePolicyDetails,
+    onSrOpenPaymentModal, onSrClosePaymentModal, onSrPaymentDraftField, onSrSavePayment, onSrRemovePayment,
   } = useAppStore();
 
   const [detailTab, setDetailTab] = useState<typeof DETAIL_TABS[number]['key']>('insured');
   const [quoteTab, setQuoteTab] = useState<typeof QUOTE_TABS[number]>('Summary');
   const [quoteOpen, setQuoteOpen] = useState(true);
+  const [dealerInfoRevealed, setDealerInfoRevealed] = useState(false);
+  const [editDraft, setEditDraft] = useState<PolicyEditDraft | null>(null);
 
   const r = state.srRequests.find(x => x.id === state.srActiveId);
   if (!r) return null;
 
+  const editErrors = editDraft ? policyEditErrors(editDraft) : {};
+
+  function startEdit() {
+    setEditDraft({
+      proposerName: r!.proposerName, nstpReason: r!.nstpReason, insurerName: r!.insurerName, medium: r!.medium,
+      channelType: r!.channelType, policySubSource: r!.policySubSource, dealerName: r!.dealerName, proposalNo: r!.proposalNo,
+      businessType: r!.businessType, freshDeskId: r!.freshDeskId, groupPolicyType: r!.groupPolicyType, medicalType: r!.medicalType,
+      preRequestId: r!.preRequestId, brokerName: r!.brokerName, localIssuance: r!.localIssuance, crossSell: r!.crossSell,
+    });
+    onSrOpenPolicyEdit();
+  }
+  function saveEdit() {
+    if (!editDraft || Object.keys(policyEditErrors(editDraft)).length > 0) return;
+    onSrSavePolicyDetails(editDraft);
+    setEditDraft(null);
+  }
+  function cancelEdit() {
+    setEditDraft(null);
+    onSrCancelPolicyEdit();
+  }
+
   const status = `${r.caseType} ${r.statusSel}`.trim();
   const statusColor = SR_STATUS_COLOR[status] || { bg: 'var(--neu-09)', color: 'var(--neu-02)' };
 
-  const policyFields: [string, string | undefined][] = [
-    ['Request ID', r.id], ['Proposer Name', r.proposerName], ['Case Type', r.policyTag], ['NSTP Reason', r.nstpReason],
-    ['Insurer Name', r.insurerName], ['Medium', r.medium], ['Policy Type', r.caseTag], ['Plan Type', r.planType],
-    ['Channel Type', r.channelType], ['Policy Sub Source', r.policySubSource], ['Request Date', r.requestDate], ['Dealer Name', r.dealerName],
-    ['Proposal No', r.proposalNo], ['Business Type', r.businessType], ['Fresh Desk Id', r.freshDeskId], ['Group Policy Type', r.groupPolicyType],
-    ['Medical Type', r.medicalType], ['Pre Request Id', r.preRequestId], ['Broker Name', r.brokerName], ['Local Issuance', r.localIssuance],
-    ['Cross Sell', r.crossSell],
+  const policyFieldDefs: [string, keyof PolicyEditDraft | null, string | undefined, string[]?][] = [
+    ['Request ID', null, r.id],
+    ['Proposer Name', 'proposerName', r.proposerName],
+    ['Case Type', null, r.policyTag],
+    ['NSTP Reason', 'nstpReason', r.nstpReason],
+    ['Insurer Name', 'insurerName', r.insurerName, SR_INSURERS],
+    ['Medium', 'medium', r.medium, ['Online', 'Offline']],
+    ['Policy Type', null, r.caseTag],
+    ['Plan Type', null, r.planType],
+    ['Channel Type', 'channelType', r.channelType],
+    ['Policy Sub Source', 'policySubSource', r.policySubSource],
+    ['Request Date', null, r.requestDate],
+    ['Dealer Name', 'dealerName', r.dealerName],
+    ['Proposal No', 'proposalNo', r.proposalNo],
+    ['Business Type', 'businessType', r.businessType, ['Retail', 'Group']],
+    ['Fresh Desk Id', 'freshDeskId', r.freshDeskId],
+    ['Group Policy Type', 'groupPolicyType', r.groupPolicyType],
+    ['Medical Type', 'medicalType', r.medicalType],
+    ['Pre Request Id', 'preRequestId', r.preRequestId],
+    ['Broker Name', 'brokerName', r.brokerName, SR_BROKERS],
+    ['Local Issuance', 'localIssuance', r.localIssuance, ['Yes', 'No']],
+    ['Cross Sell', 'crossSell', r.crossSell, ['Yes', 'No']],
   ];
 
+  function renderPolicyField(label: string, key: keyof PolicyEditDraft | null, viewValue: string | undefined, options?: string[]) {
+    if (editDraft && key) {
+      const val = editDraft[key];
+      const err = editErrors[key];
+      return (
+        <div key={label}>
+          <div className="sr-field-label">{label}</div>
+          {options ? (
+            <div className="sr-sel-wrap">
+              <select className="sr-sel" style={{ height: 32 }} value={val} onChange={e => setEditDraft(d => d && { ...d, [key]: e.target.value })}>
+                <option value="">Select</option>
+                {options.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+              <span className="sr-sel-chevron">▾</span>
+            </div>
+          ) : (
+            <input className="sr-input" style={{ height: 32 }} value={val} onChange={e => setEditDraft(d => d && { ...d, [key]: e.target.value })} />
+          )}
+          {err && <div style={{ fontSize: 11, color: 'var(--error)', marginTop: 3 }}>{err}</div>}
+        </div>
+      );
+    }
+    return <Field key={label} label={label} value={viewValue} />;
+  }
+
   const filteredLog = state.srActivityFilter === 'All' ? r.activityLog : r.activityLog.filter(l => l.type === state.srActivityFilter);
+  const amountRemaining = (Number(r.quote.totalPremium) || 0) - r.payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
   return (
     <div className="sr-root">
@@ -97,9 +189,24 @@ export function CaseDetails() {
       <div className="sr-page-grid">
         {/* Left column */}
         <div>
-          <SectionCard title="Policy Details">
+          <SectionCard
+            title="Policy Details"
+            actions={editDraft ? (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="sr-btn sr-btn-ghost" style={{ height: 28, fontSize: 11, padding: '0 10px' }} onClick={cancelEdit}>Cancel</button>
+                <button
+                  className="sr-btn sr-btn-success" style={{ height: 28, fontSize: 11, padding: '0 10px' }}
+                  disabled={Object.keys(editErrors).length > 0} onClick={saveEdit}
+                >
+                  Save
+                </button>
+              </div>
+            ) : (
+              <button className="sr-btn sr-btn-success" style={{ height: 28, fontSize: 11, padding: '0 10px' }} onClick={startEdit}>Edit</button>
+            )}
+          >
             <div className="sr-field-grid">
-              {policyFields.map(([label, value]) => <Field key={label} label={label} value={value} />)}
+              {policyFieldDefs.map(([label, key, viewValue, options]) => renderPolicyField(label, key, viewValue, options))}
             </div>
           </SectionCard>
 
@@ -134,23 +241,159 @@ export function CaseDetails() {
                   </div>
                 )}
                 {detailTab === 'dealer' && (
-                  <div className="sr-field-grid-2" style={{ display: 'grid' }}>
-                    <Field label="Dealer Name" value={r.dealerName} />
-                    <Field label="Broker Name" value={r.brokerName} />
+                  <>
+                    <div className="sr-field-grid" style={{ marginBottom: 16 }}>
+                      <Field label="GCD Code" value={r.dealerDetails.gcdCode} />
+                      <Field label="Name" value={r.dealerName} />
+                      <Field label="City" value={r.city} />
+                      <div>
+                        <div className="sr-field-label">Mobile</div>
+                        <div className="sr-field-value">{maskMobile(r.dealerDetails.mobile)}</div>
+                      </div>
+                    </div>
+                    <div className="sr-field-grid" style={{ marginBottom: 16 }}>
+                      <div>
+                        <div className="sr-field-label">Address</div>
+                        <div className="sr-field-value">{dealerInfoRevealed ? r.dealerDetails.address : '••••••••••••••••'}</div>
+                      </div>
+                      <div style={{ alignSelf: 'end' }}>
+                        <button className="sr-btn sr-btn-outline" style={{ height: 28, fontSize: 11, padding: '0 10px' }} onClick={() => setDealerInfoRevealed(v => !v)}>
+                          {dealerInfoRevealed ? 'Hide Info' : 'Show Info'}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="sr-field-grid" style={{ marginBottom: 20 }}>
+                      <Field label="RAP" value={r.dealerDetails.rap} />
+                      <Field label="M POS GCD" value={r.dealerDetails.mPosGcd} />
+                      <Field label="M POS Name" value={r.dealerDetails.mPosName} />
+                    </div>
+                    <hr className="sr-divider" />
+                    <div className="sr-table-wrap">
+                      <table className="sr-table" style={{ minWidth: 0 }}>
+                        <thead><tr><th>Name</th><th>Email</th><th>Mobile</th></tr></thead>
+                        <tbody>
+                          {r.dealerDetails.users.map((u, i) => (
+                            <tr key={i}><td>{u.name}</td><td>{maskEmail(u.email)}</td><td>{maskMobile(u.mobile)}</td></tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+                {detailTab === 'proposer' && (
+                  <div className="sr-field-grid">
+                    <Field label="Proposer Name" value={r.proposerName} />
+                    <Field label="Gender" value={r.proposerDetails.gender} />
+                    <Field label="DOB" value={r.proposerDetails.dob} />
+                    <Field label="Marital Status" value={r.proposerDetails.maritalStatus} />
+                    <Field label="Mobile Number" value={maskMobile(r.mobile)} />
+                    <Field label="Email" value={maskEmail(r.email)} />
+                    <Field label="Alt Mobile No" value={r.proposerDetails.altMobile} />
+                    <Field label="Alt Email" value={r.proposerDetails.altEmail} />
+                    <Field label="Address" value={r.proposerDetails.address} />
+                    <Field label="Pin Code" value={r.proposerDetails.pincode} />
+                    <Field label="State" value={r.proposerDetails.state} />
+                    <Field label="City" value={r.proposerDetails.city} />
+                    <Field label="Area" value={r.proposerDetails.area} />
+                    <Field label="Adhaar Card" value={r.proposerDetails.aadhaar} />
+                    <Field label="Annual Income" value={r.proposerDetails.annualIncome} />
+                    <Field label="Occupation" value={r.proposerDetails.occupation} />
+                    <Field label="GST Number" value={r.proposerDetails.gstNumber} />
+                    <Field label="PAN Card" value={r.proposerDetails.panCard} />
+                    <Field label="Nominee Name" value={r.proposerDetails.nomineeName} />
+                    <Field label="Nominee Relation" value={r.proposerDetails.nomineeRelation} />
+                    <Field label="Nominee Age" value={r.proposerDetails.nomineeAge} />
                   </div>
                 )}
-                {detailTab === 'proposer' && <Field label="Proposer Name" value={r.proposerName} />}
                 {detailTab === 'medical' && (
-                  <div className="sr-empty-state">No medical questionnaire has been recorded for this case yet.</div>
+                  <div className="sr-table-wrap">
+                    <table className="sr-table" style={{ minWidth: 0 }}>
+                      <thead><tr><th>Relation</th><th>Name</th><th>Age</th><th>Suffering From</th></tr></thead>
+                      <tbody>
+                        {r.insuredMembers.map((m, i) => {
+                          const age = ageFromDob(m.dob);
+                          return (
+                            <tr key={i}>
+                              <td style={{ textTransform: 'capitalize' }}>{m.relation}</td>
+                              <td>{m.name}</td>
+                              <td>{age === null ? '—' : age}</td>
+                              <td className={m.sufferingFrom === 'N/A' ? 'sr-field-value sr-empty' : ''}>{m.sufferingFrom === 'N/A' ? '—' : m.sufferingFrom}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
                 {detailTab === 'payment' && (
-                  <div className="sr-field-grid-2" style={{ display: 'grid' }}>
-                    <Field label="Payment Mode" value={r.quote.paymentMode} />
-                    <Field label="Total Premium" value={r.quote.totalPremium} />
-                  </div>
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <div>
+                        <div className="sr-field-label">Amount Remaining</div>
+                        <div className="sr-field-value" style={{ fontSize: 16 }}>{amountRemaining.toFixed(2)}</div>
+                      </div>
+                      <button className="sr-btn sr-btn-success" onClick={onSrOpenPaymentModal}>+ Add Payment</button>
+                    </div>
+                    <div className="sr-table-wrap" style={{ marginBottom: 20 }}>
+                      <table className="sr-table" style={{ minWidth: 0 }}>
+                        <thead><tr><th>Payment Mode</th><th>Amount</th><th>Sub-Amount</th><th>Cheque Number</th><th>Linked policy</th><th>Actions</th></tr></thead>
+                        <tbody>
+                          {r.payments.length === 0 && (
+                            <tr><td colSpan={6}><div className="sr-empty-state">No payments recorded yet.</div></td></tr>
+                          )}
+                          {r.payments.map((p, i) => (
+                            <tr key={i}>
+                              <td>{p.paymentMode}</td>
+                              <td>{p.amount}</td>
+                              <td className={!p.subAmount ? 'sr-field-value sr-empty' : ''}>{p.subAmount || '—'}</td>
+                              <td className={!p.chequeNumber ? 'sr-field-value sr-empty' : ''}>{p.chequeNumber || '—'}</td>
+                              <td className={!p.linkedPolicy ? 'sr-field-value sr-empty' : ''}>{p.linkedPolicy || '—'}</td>
+                              <td><button className="sr-icon-btn" title="Remove" onClick={() => onSrRemovePayment(i)}>✕</button></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="sr-field-grid" style={{ marginBottom: 16 }}>
+                      <Field label="Total APE" value={r.quote.totalPremium} />
+                      <Field label="APE Tax" value={r.quote.tax} />
+                      <Field label="Gross APE" value={r.quote.totalPremium} />
+                    </div>
+                    <div className="sr-field-grid" style={{ marginBottom: 16 }}>
+                      <Field label="Total Payment Collected" value="N/A" />
+                      <Field label="Payment Collected Tax" value="N/A" />
+                      <Field label="Gross Payment Collected" value="N/A" />
+                    </div>
+                    <div className="sr-field-grid" style={{ marginBottom: 16 }}>
+                      <Field label="Total Payment EMI" value={r.quote.totalPremium} />
+                      <Field label="Payment EMI Tax" value="N/A" />
+                      <Field label="Gross Payment EMI" value={r.quote.totalPremium} />
+                    </div>
+                    <div className="sr-field-grid" style={{ marginBottom: 16 }}>
+                      <Field label="Payment Frequency" value="N/A" />
+                      <Field label="EMI Type" value="No" />
+                      <Field label="ECS Type" value="N/A" />
+                    </div>
+                    <div className="sr-field-grid" style={{ marginBottom: 16 }}>
+                      <Field label="Total Collected For" value="N/A" />
+                      <Field label="Cheque Number" value="N/A" />
+                      <Field label="Cheque Issuing Bank" value="N/A" />
+                    </div>
+                    <div className="sr-field-grid">
+                      <Field label="Cheque Copy" value="N/A" />
+                      <Field label="Payment Method" value={r.quote.paymentMode} />
+                    </div>
+                  </>
                 )}
                 {detailTab === 'addons' && (
-                  <div className="sr-empty-state">No addons were selected on this policy.</div>
+                  <div className="sr-table-wrap">
+                    <table className="sr-table" style={{ minWidth: 0 }}>
+                      <thead><tr><th>Name</th><th>Premium</th><th>Tax</th><th>Total Premium</th></tr></thead>
+                      <tbody>
+                        <tr><td colSpan={4}><div className="sr-empty-state">No addons were selected on this policy.</div></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             </div>
@@ -196,7 +439,17 @@ export function CaseDetails() {
                         </div>
                       </>
                     )}
-                    {quoteTab === 'Previous Details' && <div className="sr-empty-state">No previous policy details found for this proposer.</div>}
+                    {quoteTab === 'Previous Details' && (
+                      <>
+                        <div className="sr-field-grid" style={{ marginBottom: 10 }}>
+                          <Field label="Previous Policy No." value={r.previousPolicy.previousPolicyNo} />
+                          <Field label="Policy Expiry Date" value={r.previousPolicy.policyExpiryDate} />
+                          <Field label="Previous Insurer" value={r.previousPolicy.previousInsurer} />
+                          <Field label="Port Reason" value={r.previousPolicy.portReason} />
+                        </div>
+                        <Field label="GIBPL Previous Policy" value={r.previousPolicy.gibplPreviousPolicy} />
+                      </>
+                    )}
                     {quoteTab === 'Kyc Details' && <div className="sr-empty-state">KYC has not been captured for this case yet.</div>}
                   </div>
                 </div>
@@ -359,6 +612,48 @@ export function CaseDetails() {
           </div>
         </div>
       </div>
+
+      {state.srPaymentModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={onSrClosePaymentModal}>
+          <div className="sr-card" style={{ width: 480, margin: 0 }} onClick={e => e.stopPropagation()}>
+            <div className="sr-card-header">
+              <span className="sr-card-title">Add Payment</span>
+              <button className="sr-icon-btn" onClick={onSrClosePaymentModal}>✕</button>
+            </div>
+            <div className="sr-card-body">
+              <div className="sr-field-grid-2" style={{ display: 'grid', marginBottom: 14 }}>
+                <div>
+                  <label className="sr-field-row-label">Payment Mode<span className="sr-required">*</span></label>
+                  <div className="sr-sel-wrap">
+                    <select className="sr-sel" value={state.srPaymentDraft.paymentMode} onChange={e => onSrPaymentDraftField('paymentMode', e.target.value)}>
+                      <option value="">Select Payment Mode</option>
+                      {CHR_PAYMENT_MODES.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                    <span className="sr-sel-chevron">▾</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="sr-field-row-label">Amount<span className="sr-required">*</span></label>
+                  <input className="sr-input" value={state.srPaymentDraft.amount} onChange={e => onSrPaymentDraftField('amount', e.target.value.replace(/[^0-9.]/g, ''))} placeholder="Enter Total Amount" />
+                </div>
+              </div>
+              <div className="sr-field-grid-2" style={{ display: 'grid', marginBottom: 18 }}>
+                <div>
+                  <label className="sr-field-row-label">Sub Amount</label>
+                  <input className="sr-input" value={state.srPaymentDraft.subAmount} onChange={e => onSrPaymentDraftField('subAmount', e.target.value.replace(/[^0-9.]/g, ''))} placeholder="Enter Amount for Ticket" />
+                </div>
+                <div>
+                  <label className="sr-field-row-label">Transaction Id<span className="sr-required">*</span></label>
+                  <input className="sr-input" value={state.srPaymentDraft.transactionId} onChange={e => onSrPaymentDraftField('transactionId', e.target.value)} placeholder="Enter Transaction Id" />
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button className="sr-btn sr-btn-success" onClick={onSrSavePayment}>Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

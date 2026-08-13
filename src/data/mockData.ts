@@ -313,7 +313,7 @@ function mkSimpleQuote(insurer: string, plan: string, premium: string): SrReques
   };
 }
 
-export const INIT_SR_REQUESTS: SrRequest[] = [
+const SR_REQUESTS_SEED = [
   {
     id: '44157219', ticketDisplayId: 'INS-H-ON-44157219', requestDate: '2026-07-31 00:00',
     customerName: 'Anita Rawat', mobile: '9811044521', email: 'anita.rawat@example.com', channelType: 'AGENCY', subSource: 'POS', ageingLabel: '6 Mins', ageingLevel: 'fresh',
@@ -458,6 +458,52 @@ export const INIT_SR_REQUESTS: SrRequest[] = [
     activityLog: mkLighterLog('Booked Verification Call Pending', 'Lalita Bisht'),
   },
 ];
+
+const SR_DEALER_USER_POOL = [
+  { name: 'Ankit Rai', email: 'ankit.rai@example.com', mobile: '9811100001' },
+  { name: 'Arun Verma', email: 'arun.verma@example.com', mobile: '9811100002' },
+  { name: 'Ayush Gupta', email: 'ayush.gupta@example.com', mobile: '9811100003' },
+  { name: 'Narmender Kumar', email: 'narmender.kumar@example.com', mobile: '9811100004' },
+];
+
+function dealerGcdCode(dealerName: string, index: number): string {
+  const entry = Object.entries(CHR_DEALER_LOOKUP).find(([, d]) => d.name === dealerName);
+  return entry ? entry[0] : `GID${129000 + index}`;
+}
+
+function enrichSrRequest(r: typeof SR_REQUESTS_SEED[number], index: number): SrRequest {
+  const isPortOrRenew = r.caseTag === 'Renew' || r.caseTag === 'Port Fresh';
+  const firstMember = r.insuredMembers[0];
+  return {
+    ...r,
+    insuredMembers: r.insuredMembers.map(m => ({ ...m, sufferingFrom: 'N/A' })),
+    payments: [],
+    dealerDetails: {
+      gcdCode: dealerGcdCode(r.dealerName, index),
+      mobile: r.mobile.split('').reverse().join(''),
+      address: `${r.dealerName} Business Address, ${r.city}`,
+      rap: 'No',
+      mPosGcd: 'N/A',
+      mPosName: 'N/A',
+      users: SR_DEALER_USER_POOL,
+    },
+    proposerDetails: {
+      gender: firstMember ? firstMember.gender : 'N/A',
+      dob: firstMember ? firstMember.dob : 'N/A',
+      maritalStatus: 'N/A', altMobile: 'N/A', altEmail: 'N/A', address: 'N/A', pincode: 'N/A',
+      state: 'N/A', city: r.city, area: 'N/A', aadhaar: 'N/A', annualIncome: 'N/A', occupation: 'N/A',
+      gstNumber: 'N/A', panCard: 'N/A', nomineeName: 'N/A', nomineeRelation: 'N/A', nomineeAge: 'N/A',
+    },
+    previousPolicy: isPortOrRenew ? {
+      previousPolicyNo: r.policyNumber !== '0' ? r.policyNumber : 'N/A',
+      policyExpiryDate: 'N/A', previousInsurer: r.insurerName, portReason: 'N/A', gibplPreviousPolicy: 'No',
+    } : {
+      previousPolicyNo: 'N/A', policyExpiryDate: 'N/A', previousInsurer: 'N/A', portReason: 'N/A', gibplPreviousPolicy: 'N/A',
+    },
+  };
+}
+
+export const INIT_SR_REQUESTS: SrRequest[] = SR_REQUESTS_SEED.map((r, i) => enrichSrRequest(r, i));
 
 // ---- Allocation Buckets & Rules (Health) ----
 

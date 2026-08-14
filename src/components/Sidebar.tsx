@@ -97,7 +97,7 @@ export function Sidebar() {
             {hrExpanded && (
               <div style={{ borderTop: '1px solid rgba(255,255,255,.16)', padding: '4px 6px 6px' }}>
                 <div onClick={() => onNavTo('servicerequests')} style={umrSubItemStyle(page === 'servicerequests')}>
-                  <span style={{ width: 14, flexShrink: 0 }} /><span style={{ width: 18, textAlign: 'center', fontSize: 14, flexShrink: 0 }}>📋</span> Health Policy List
+                  <span style={{ width: 14, flexShrink: 0 }} /><span style={{ width: 18, textAlign: 'center', fontSize: 14, flexShrink: 0 }}>📋</span> Health Policy List (Active)
                 </div>
                 <div onClick={() => onNavTo('createhealthrequest')} style={umrSubItemStyle(page === 'createhealthrequest')}>
                   <span style={{ width: 14, flexShrink: 0 }} /><span style={{ width: 18, textAlign: 'center', fontSize: 14, flexShrink: 0 }}>➕</span> Create Health Request
